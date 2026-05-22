@@ -1,22 +1,150 @@
 %!TEX root=../mythesis.tex
 % Appendix A
 
-\chapter{Proofs for Part I or Chapter 3} % Main appendix title
+\chapter{Proofs and Derivations} % Main appendix title
+\label{AppendixA}
 
-\label{AppendixA} % For referencing this appendix elsewhere, use \ref{AppendixA}
+This appendix collects the formal results referenced from the technical chapters: the convergence of the EarnHFT Q-teacher (\sref{app:earnhft_proof}), the convergence of the FineFT selective update (\sref{app:fineft_proof}), and the generalisation properties of the AlphaQD formulation (\sref{app:alphaqd_theory}).
 
-%\lhead{Appendix A. \emph{Appendix Title Here}} % This is for the header on each page - perhaps a shortened title
-\section{Proof of Lemma}
-\label{pf:ApprGradSys}
+%----------------------------------------------------------------------------------------
+\section{Convergence of the EarnHFT Q-Teacher}
+\label{app:earnhft_proof}
 
-$$\psi^{av}(\theta)=\frac{1}{T}\int^{T}_0[\psi(\theta+\mu(\tau))+C]\otimes\frac{\mu(\tau)}{a}d\tau$$ 
-
-
-
-\section{Proof of another Lemma}
+We prove Theorem~\ref{thm:earnhft_convergence}: under a finite MDP, the action value learned with the optimal-value-supervisor update of \eqref{eq:earnhft_loss} converges to the optimal action value $Q^\star$. The method is based on $Q$-learning, so following the standard convergence argument~\cite{jaakkola1993convergence} it suffices to show that the supervised update operator $H$ is a contraction in the sup-norm whose fixed point is $Q^\star$. The operator combines the usual Bellman backup with the supervision term and is
 \begin{equation}
-\begin{aligned}
-\gamma_1(\left\|x\right\|)\leq W(t,x)\leq \gamma_2(\left\|x\right\|)\\
-\frac{\partial{W}}{\partial{t}}+\frac{\partial{W}}{\partial{x}}\phi(t,x,0)\leq-\gamma_3(\left\|x\right\|)
-\end{aligned}
+\label{eq:app_earnhft_operator}
+Hq(x,a) = \lambda\sum_{y\in X}T(y\mid x,a)\bigl(r(x,a,y)+\gamma\max_b q(y,b)\bigr) + (1-\lambda)\Bigl(\tfrac{1}{|A|}\sum_{a\in A}q(x,a)+Re(x,a)\Bigr),
 \end{equation}
+where the supervision residual is
+\begin{equation}
+\label{eq:app_earnhft_residual}
+Re(x,a) = q^\star(x,a) - \tfrac{1}{|A|}\sum_{a\in A}q^\star(x,a),
+\end{equation}
+and $\lambda\in(0,1]$ weights the Bellman backup against the supervision term.
+
+\begin{proposition}[$Q^\star$ is a fixed point]
+\label{prop:app_earnhft_fixed}
+The optimal action value $q^\star$ satisfies $Hq^\star = q^\star$.
+\end{proposition}
+\begin{proof}
+Substituting $q^\star$ into \eqref{eq:app_earnhft_operator} and using the Bellman optimality equation $q^\star(x,a)=\sum_y T(y\mid x,a)(r(x,a,y)+\gamma\max_b q^\star(y,b))$ for the first term and \eqref{eq:app_earnhft_residual} for the second,
+\begin{align*}
+Hq^\star(x,a) &= \lambda\, q^\star(x,a) + (1-\lambda)\Bigl(\tfrac{1}{|A|}\textstyle\sum_a q^\star(x,a) + q^\star(x,a) - \tfrac{1}{|A|}\textstyle\sum_a q^\star(x,a)\Bigr) \\
+&= \lambda\, q^\star(x,a) + (1-\lambda)\, q^\star(x,a) = q^\star(x,a). \qedhere
+\end{align*}
+\end{proof}
+
+\begin{proposition}[Contraction in the sup-norm]
+\label{prop:app_earnhft_contraction}
+For any action values $q_1,q_2$, $\|Hq_1-Hq_2\|_\infty \le k\,\|q_1-q_2\|_\infty$ with $k=1-(1-\lambda)\gamma<1$.
+\end{proposition}
+\begin{proof}
+The supervision residual $Re(x,a)$ depends only on $q^\star$, not on the argument of $H$, so it cancels in the difference $Hq_1-Hq_2$. Writing the difference and bounding the $\max$ operator by $|\max_b q_1(y,b)-\max_b q_2(y,b)|\le\max_b|q_1(y,b)-q_2(y,b)|$,
+\begin{align*}
+\|Hq_1-Hq_2\|_\infty
+&= \Bigl\| \lambda\textstyle\sum_y T(y\mid x,a)\gamma\bigl(\max_{b}q_1(y,b)-\max_{b}q_2(y,b)\bigr) \\
+&\qquad + (1-\lambda)\tfrac{1}{|A|}\textstyle\sum_{a'}\bigl(q_1(x,a')-q_2(x,a')\bigr)\Bigr\|_\infty \\
+&\le \lambda\gamma\,\|q_1-q_2\|_\infty + (1-\lambda)\,\|q_1-q_2\|_\infty \\
+&= \bigl(1-(1-\lambda)\gamma\bigr)\|q_1-q_2\|_\infty.
+\end{align*}
+Since $\gamma\in(0,1]$ and $\lambda\in(0,1]$, the factor $k=1-(1-\lambda)\gamma<1$, so $H$ is a contraction.
+\end{proof}
+
+Combining the two propositions, $H$ is a contraction with unique fixed point $q^\star$; by the stochastic-approximation argument of~\cite{jaakkola1993convergence}, the iterates converge almost surely to $Q^\star$, which proves Theorem~\ref{thm:earnhft_convergence}.
+
+%----------------------------------------------------------------------------------------
+\section{Convergence of the FineFT Selective Update}
+\label{app:fineft_proof}
+
+We argue that the selective-update rule of \sref{sec:fineft_stage1} preserves convergence of each learner on the dynamic it specialises in. The argument has two parts.
+
+First, the pre-training loss \eqref{eq:fineft_pretrain} updates every learner with the same optimal-value supervisor used by EarnHFT (now constrained by the liquidation mask of Algorithm~\ref{alg:fineft_coav}). The per-learner update operator is exactly the operator $H$ of \eqref{eq:app_earnhft_operator}, so by \sref{app:earnhft_proof} each learner's action value converges to the constrained optimal action value on the demonstration distribution.
+
+Second, consider the selective-update phase restricted to transitions from a single dynamic $z$. By the DP-MDP assumption (\sref{sec:fineft_dpmdp}), these transitions are generated by a stationary MDP $M_z$. The weight matrix of Algorithm~\ref{alg:fineft_weight} assigns, for each transition, a non-negative weight to the best-fitting learner $i^\star$ and its neighbours, and zero elsewhere; the diagonal weight of $i^\star$ is one. The update of learner $i^\star$ on transitions of dynamic $z$ is therefore a standard Huber-TD update under $M_z$ with a non-negative supervision term, whose update operator is a sup-norm contraction by the same argument as \sref{app:earnhft_proof}. The positive-feedback property---that specialising in $z$ lowers learner $i^\star$'s TD error on $z$, which raises its selection weight on subsequent $z$-transitions---ensures that, once a learner becomes the best fit for $z$, it continues to receive the $z$-transitions that drive its convergence on $M_z$. The cross-learner weights of neighbouring learners are bounded by the diagonal weights and decay with index distance, so they perturb the update by a contraction-preserving convex combination and do not break the contraction. Hence each specialist converges to the optimal action value of the dynamic it is selected for.
+
+The full formal treatment, including the precise stochastic-approximation conditions on the selection weights, follows the convergence analysis of the original FineFT manuscript.
+
+%----------------------------------------------------------------------------------------
+\section{Generalisation Properties of AlphaQD}
+\label{app:alphaqd_theory}
+
+This section gives the full statements and proofs of the results summarised in \sref{sec:alphaqd_theory}. Two assumptions are used by name. \textbf{(A1)} \emph{Sign-symmetric warm-up shape distribution}: the warm-up sample $\{\mathbf{r}(\alpha_i)\}_{i=1}^M$ has zero mean and a second moment equal to that of its sign-augmented version $\{\mathbf{r}(\alpha_i),-\mathbf{r}(\alpha_i)\}$, which holds because a formula and its sign-flip are both legal under the same mask and produce IC series differing only by a global sign. \textbf{(A2)} \emph{Positive ridge weights on retained orbit pairs}: the shared ridge combiner assigns strictly positive weight to both representatives of an orbit when both are exported, which holds in the empirical regime where $\ell_2$-regularised regression on positively-edged factors places weight on both inputs.
+
+\subsection{Decoupling Quality from Shape}
+\label{app:alphaqd_decouple}
+
+\begin{lemma}[Affine invariance of the shape descriptor; restates Lemma~\ref{lem:alphaqd_affine}]
+\label{app:lem_affine}
+For any candidate $\alpha$ and any positive affine transform $\mathbf{y}=a\,\mathbf{x}(\alpha)+b\mathbf{1}$ with $a>0$, the normalised shape vector built from $\mathbf{y}$ equals $\mathbf{r}(\alpha)$.
+\end{lemma}
+\begin{proof}
+The mean satisfies $\overline{\mathbf{y}}=a\,\overline{\mathbf{x}(\alpha)}+b$, so $\mathbf{y}-\overline{\mathbf{y}}\mathbf{1}=a(\mathbf{x}(\alpha)-\overline{\mathbf{x}(\alpha)}\mathbf{1})$, and normalising by the $\ell_2$ norm cancels $a>0$, giving $\mathbf{r}(\alpha)$.
+\end{proof}
+
+The consequence is that the descriptor encodes only \emph{which} dates were relatively strong, not the overall edge: mean and scale are absorbed into the ICIR, removing the leakage that would let two alphas with the same temporal pattern but different edge occupy different cells.
+
+\subsection{Reward Stationarity}
+\label{app:alphaqd_stationary}
+
+\begin{theorem}[Stationary conditional reward; restates Theorem~\ref{thm:alphaqd_stationary}]
+\label{app:thm_stationary}
+Let $R_q(\alpha)=\exp(\beta_q\,\mathrm{ICIR}(\alpha))$. For any fixed target orbit $\mathcal{O}^\star$ and any kernel $K:\mathcal{O}\times\mathcal{O}\to\mathbb{R}_{\ge 0}$ independent of the archive state and the training-step index, the conditional reward $R_{\mathcal{O}^\star}(\alpha)=R_q(\alpha)\,K(\mathcal{O}(c(\alpha)),\mathcal{O}^\star)$ is a stationary terminal reward.
+\end{theorem}
+\begin{proof}
+For each fixed $\mathcal{O}^\star$, $R_{\mathcal{O}^\star}(\cdot)$ depends on $\alpha$ only through $\mathrm{ICIR}(\alpha)$ on the fixed training window and through the fixed PCA basis and bin edges entering $c(\cdot)$. The kernel $K$ is fixed and $\mathcal{O}^\star$ is a parameter, not a function of training-time state, so $R_{\mathcal{O}^\star}$ has no time-dependent component. A scheduler that varies $\mathcal{O}^\star$ across episodes changes only the per-episode prior over conditions, never the conditional reward.
+\end{proof}
+
+The implementation uses the unconditional reward ($K\equiv 1$), so the property holds a fortiori; the conditional form documents compatibility with future descriptor-biased exploration extensions.
+
+\subsection{Search Complexity and the Boosting Counter-Example}
+\label{app:alphaqd_complexity}
+
+\begin{theorem}[Residual-edge noise floor]
+\label{app:thm_boost}
+Let $\mathcal{F}=\{\alpha_1,\dots,\alpha_M\}$ be a finite candidate set. After $t-1$ boosting rounds with residual $r_{t-1}$, the empirical residual-edge maximiser is $\alpha_t=\argmax_{\alpha\in\mathcal{F}}\widehat{\langle\alpha,r_{t-1}\rangle}$. Let $\gamma_t(\alpha)=\mathbb{E}[\langle\alpha,r_{t-1}\rangle]$ be the population residual edge, $\Delta_t=\sup_\alpha\gamma_t(\alpha)$, and $\eta_M=\sigma\sqrt{2\log(2M/\delta)/n_{\mathrm{eff}}}$ a sub-Gaussian deviation. Then with probability at least $1-\delta$, $\gamma_t(\alpha_t)\ge\Delta_t-2\eta_M$; when $\Delta_t\le 2\eta_M$, the bound is non-positive.
+\end{theorem}
+\begin{proof}
+Uniform sub-Gaussian concentration over $\mathcal{F}$ gives $\sup_\alpha|\hat\gamma_t(\alpha)-\gamma_t(\alpha)|\le\eta_M$ with probability $\ge 1-\delta$. Writing $\alpha_t^\star=\argmax_\alpha\gamma_t(\alpha)$, $\gamma_t(\alpha_t)\ge\hat\gamma_t(\alpha_t)-\eta_M\ge\hat\gamma_t(\alpha_t^\star)-\eta_M\ge\gamma_t(\alpha_t^\star)-2\eta_M=\Delta_t-2\eta_M$, where the middle step uses the empirical optimality of $\alpha_t$.
+\end{proof}
+
+With $M>10^{20}$ and $n_{\mathrm{eff}}$ bounded by training-window days, the late-round residual winner is governed by the noise floor $\eta_M$ rather than by population signal.
+
+\begin{theorem}[Search-complexity contrast; restates Theorem~\ref{thm:alphaqd_complexity}]
+\label{app:thm_complexity}
+A $K$-step boosting procedure over $\mathcal{F}$ with $|\mathcal{F}|=M$ has an ordered-sequence hypothesis class of size at most $M^K$, with finite-class complexity $\mathcal{C}_{\mathrm{boost},K}=\sqrt{K\log M/n_{\mathrm{eff}}}$. A quality-diversity rule mapping candidates to at most $G$ occupied cells and exporting one representative per cell has a $K$-subset class of size at most $\binom{G}{K}$, with complexity $\mathcal{C}_{\mathrm{QD},K}=\sqrt{K\log(G/K)/n_{\mathrm{eff}}}$. For $G\ll M$, $\mathcal{C}_{\mathrm{QD},K}\ll\mathcal{C}_{\mathrm{boost},K}$.
+\end{theorem}
+\begin{proof}
+The finite-class generalisation bound scales as $\sqrt{\log|\mathcal{H}|/n_{\mathrm{eff}}}$. Substituting $|\mathcal{H}_{\mathrm{boost},K}|\le M^K$ gives $\log|\mathcal{H}_{\mathrm{boost},K}|\le K\log M$. Substituting $|\mathcal{H}_{\mathrm{QD},K}|\le\binom{G}{K}$ and $\log\binom{G}{K}\le K\log(eG/K)$ gives the QD scaling.
+\end{proof}
+
+In the reported grid $G\le 100$ while $|\mathcal{A}|>10^{20}$, so the gap spans several orders of magnitude.
+
+\subsection{Per-Cell Selection Bias}
+\label{app:alphaqd_selection}
+
+\begin{theorem}[Per-cell selection bias under a bounded quota]
+\label{app:thm_selection}
+Fix an occupied cell holding at most $\kappa$ admitted elites at selection time, each with population quality $\theta_i$ and training-window estimate $\hat\theta_i=\theta_i+\varepsilon_i$ with sub-Gaussian $\varepsilon_i$ of effective sample size $n_{\mathrm{eff}}$. With probability at least $1-\delta$, the selection bias of the per-cell representative on raw ICIR satisfies $\max_{i\le\kappa}(\hat\theta_i-\theta_i)\le\sigma\sqrt{2\log(\kappa/\delta)/n_{\mathrm{eff}}}$. If the ranking uses the PFS-augmented score averaging the ICIR with $m$ independent perturbations, $\sigma$ is replaced by $\sigma/\sqrt{1+m}$.
+\end{theorem}
+\begin{proof}
+A union bound on the $\kappa$ sub-Gaussian tails gives $\mathbb{P}(\max_{i\le\kappa}\varepsilon_i>t)\le\kappa\exp(-n_{\mathrm{eff}}t^2/(2\sigma^2))$; setting the right-hand side to $\delta$ yields $t=\sigma\sqrt{2\log(\kappa/\delta)/n_{\mathrm{eff}}}$. Averaging $1+m$ independent sub-Gaussian estimates with parameter $\sigma$ yields parameter $\sigma/\sqrt{1+m}$.
+\end{proof}
+
+The bounded quota replaces the candidate-count exponent that would govern an unbounded per-cell maximum by the constant $\kappa$; under $\kappa=3$, $\delta=0.05$ the bound is $\approx 2.86\,\sigma/\sqrt{n_{\mathrm{eff}}}$, and the $m=5$ perturbations tighten it by $\sqrt{6}$ when the PFS-augmented score decides the ranking.
+
+\subsection{Ensemble ICIR Lower Bound}
+\label{app:alphaqd_ensemble}
+
+\begin{theorem}[Ensemble ICIR lower bound; restates Theorem~\ref{thm:alphaqd_ensemble}]
+\label{app:thm_ensemble}
+If the export retains $K$ positive-ICIR elites with daily IC variables $X_1,\dots,X_K$ satisfying $\mathbb{E}[X_i]=\mu_i\ge\mu_{\min}>0$, $\Var(X_i)\le\sigma^2$, and $\corr(X_i,X_j)\le\rho$, then the equal-weight ensemble $X_{\mathrm{ens}}=\frac{1}{K}\sum_i X_i$ obeys $\mathrm{ICIR}(X_{\mathrm{ens}})\ge\mu_{\min}\sqrt{K}/(\sigma\sqrt{1+(K-1)\rho})$.
+\end{theorem}
+\begin{proof}
+By linearity, $\mathbb{E}[X_{\mathrm{ens}}]\ge\mu_{\min}$. For the variance,
+\[
+\Var(X_{\mathrm{ens}}) = \tfrac{1}{K^2}\textstyle\sum_i\Var(X_i) + \tfrac{1}{K^2}\sum_{i\ne j}\Cov(X_i,X_j) \le \tfrac{\sigma^2}{K^2}\bigl[K+K(K-1)\rho\bigr] = \tfrac{\sigma^2(1+(K-1)\rho)}{K},
+\]
+so $\mathrm{ICIR}(X_{\mathrm{ens}})=\mathbb{E}[X_{\mathrm{ens}}]/\sqrt{\Var(X_{\mathrm{ens}})}\ge\mu_{\min}\sqrt{K}/(\sigma\sqrt{1+(K-1)\rho})$.
+\end{proof}
+
+The bound rests on positive standalone edges, enforced by the positive-ICIR admission rule, and on controlled redundancy $\rho$, enforced by the bounded per-cell quota and the PCA descriptor; \sref{sec:alphaqd_diagnostics} reports an empirical pairwise correlation of $0.2478$. Theorem~\ref{app:thm_boost} shows that boosting-style fitting preserves neither premise, so no analogous bound is available for it.

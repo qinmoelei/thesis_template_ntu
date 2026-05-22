@@ -40,8 +40,8 @@
 \usepackage{subcaption}
 \usepackage{mathtools}
 \usepackage{lipsum}
-\usepackage[ruled,vlined,noresetcount]{algorithm2e}
-%\usepackage{algpseudocode}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
 \usepackage[square, numbers, comma, sort&compress]{natbib} % Use the natbib reference package - read up on this to edit the reference style; if you want text (e.g. Smith et al., 2012) for the in-text references (instead of numbers), remove 'numbers'
 
 \title{\ttitle} % Defines the thesis title - don't touch this
@@ -51,6 +51,30 @@
 \usepackage{color,soul}               % highlighting text
 \usepackage{enumerate}
 \usepackage{Styles/mydefs}
+
+%---------------------------------------------------------------------------
+% Additional packages and macros required by the compiled research chapters
+% (Chapters 3-5), ported from the original conference manuscripts.
+%---------------------------------------------------------------------------
+\usepackage{xcolor}        % coloured table entries (best/second/third best)
+\usepackage{array}         % extended column specifications
+\usepackage{booktabs}      % \toprule, \midrule, \bottomrule, \cmidrule
+\usepackage{colortbl}      % cell shading in tables
+\usepackage{makecell}      % multi-line table cells
+\usepackage{bm}            % bold math symbols
+\usepackage{threeparttable}% table notes
+
+% Ranking colours reused across the experimental tables.
+\newcommand{\fst}[1]{\textcolor[RGB]{255,0,185}{#1}}   % best
+\newcommand{\snd}[1]{\textcolor[RGB]{0,153,76}{#1}}    % second best
+\newcommand{\trd}[1]{\textcolor[RGB]{0,128,255}{#1}}   % third best
+
+% Math operators used in the methods.
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\argmin}{arg\,min}
+\DeclareMathOperator{\corr}{corr}
+\DeclareMathOperator{\Var}{Var}
+\DeclareMathOperator{\Cov}{Cov}
 
 
 \begin{document}
@@ -85,38 +109,22 @@
 
 \thesisdeclareSupervisor{I have reviewed the content and presentation style of this thesis and declare it is free of plagiarism and of sufficient grammatical clarity to be examined.  To the best of my knowledge, the research and writing are those of the candidate except as acknowledged in the Author Attribution Statement. I confirm that the investigations were conducted in accord with the ethics policies and integrity standards of Nanyang Technological University and that the research data are presented honestly and without prejudice.}{Mar. 2019}{Styles/signature.png}
 
-\thesisdeclareAuthorship{Please select one of the following; *delete as appropriate:
-\\
-*(A) This thesis does not contain any materials from papers published in peer-reviewed journals or from papers accepted at conferences in which I am listed as an author.
-\\
-*(B) This thesis contains material from [x number] paper(s) published in the following peer-reviewed journal(s) / from papers accepted at conferences in which I am listed as an author.}
-{Please amend the typical statements below to suit your circumstances if (B) is selected.
+\thesisdeclareAuthorship{This thesis contains material from three papers in which I am listed as an author. The works reproduced in the technical chapters were carried out during my doctoral candidature.}
+{The technical chapters of this thesis are based on the following papers, with placeholder author lists to be completed by the candidate:
 
-	Chapter 4 is published as {\color{blue}D.T. Murphy, S. Schmid, J.R. Hester, P.E.R. Blanchard, and W. Miiller.  Coordination site disorder in spinel-type LiMnTiO4.  Inorganic Chemistry 54, 4636-4643 (2015). DOI: 10.1021/ic502747p.}
+	Chapter~\ref{ch:earnhft} is based on {\color{blue}M.~Qin et al., ``EarnHFT: Efficient Hierarchical Reinforcement Learning for High Frequency Trading,'' in \emph{Proceedings of the AAAI Conference on Artificial Intelligence}, 2024.}
 
-	The contributions of the co-authors are as follows:
+	Chapter~\ref{ch:fineft} is based on {\color{blue}M.~Qin et al., ``FineFT: Efficient and Risk-Aware Ensemble Reinforcement Learning for Futures Trading,'' manuscript submitted to \emph{ACM SIGKDD}, 2026.}
+
+	Chapter~\ref{ch:alphaqd} is based on {\color{blue}M.~Qin et al., ``AlphaQD: Quality-Diversity Reinforcement Learning for Formulaic Alpha Mining,'' manuscript submitted to \emph{ACM SIGKDD}.}
+
+	The contributions of the candidate and co-authors are as follows:
 	\begin{itemize}[topsep=1pt,itemsep=1pt,partopsep=1pt, parsep=1pt]
-		\item A/Prof Schmid provided the initial project direction and edited the manuscript drafts.
-		\item I prepared the manuscript drafts.  The manuscript was revised by Dr Hester and Dr. Blanchard.
-		\item I co-designed the study with A/Prof Siegbert Schmid and performed all the laboratory work at the School of Materials Science and Engineering and the Singapore Synchrotron Light Source.   I also analyzed the data.
-		\item All microscopy, including sample preparation, was conducted by me in the Facility for Analysis, Characterization, Testing and Simulation.
-		\item Dr James Hester assisted in the collection of the neutron powder diffraction data.
-		\item Dr Peter Blanchard assisted in the interpretation of the X-ray absorption spectroscopy data and carried out the spectral interpretation.
-		\item Dr Wojciech Miiller assisted in the collection and provide guidance in the interpretation of the magnetic measurement data.
+		\item I am the leading author of all three papers. I formulated the research problems, designed the methods, implemented the algorithms and the high-fidelity trading environments, conducted all experiments, and wrote the manuscripts.
+		\item My supervisor provided overall research direction and revised the manuscripts.
+		\item Co-authors contributed through technical discussions, partial baseline implementation, and proofreading of the manuscripts.
 	\end{itemize}
-
-	Chapter 5 is published as {\color{blue}H. V Doan, B. Yao, Y. Fang, A. Sartbaeva, U. Hintermair, V. P Ting, Controlled Formation of Hierarchical Metal-Organic Frameworks using CO2 Expanded Solvent Systems. In press, ACS Sustainable Chemistry \& Engineering (2017). DOI: 10.1021/acssuschemeng.7b01429}
-
-	The contributions of the co-authors are as follows:
-	\begin{itemize}[topsep=1pt,itemsep=1pt,partopsep=1pt, parsep=1pt]
-		\item Prof Ting suggested the materials area and edited the manuscript drafts.
-		\item I wrote the drafts of the manuscript.  The manuscript was revised together with Dr. Sartbaeva and Dr. Yao.
-		\item II performed all the materials synthesis, collected X-ray diffraction patterns and visible light spectra, carried transmission electron microscopy, and conducted data evaluation.
-		\item IDr. Y. Fang conducted the Rietveld analysis of the powder X-ray diffraction data and single crystal structure determinations.
-		\item IDr U. Hintermair conducted the molecular dynamics simulations.
-		\item IMs. A. Sartbaeva prepared the samples for electron microscopy.
-	\end{itemize}
-}{Mar. 2019}{Styles/signature.png}
+}{[Month, Year]}{Styles/signature.png}
 
 % ----------------------------------------------------------------------------------------
 % 	ACKNOWLEDGEMENTS
@@ -126,10 +134,10 @@
 
 \acknowledgements{\addtocontents{toc}{\vspace{0.8em}} % Add a gap in the Contents, for aesthetics
 
-I wish to express my greatest gratitude to my advisor.
+I wish to express my deepest gratitude to my supervisor for the guidance, patience, and intellectual freedom that made this research possible, and for teaching me to look for the simplest structure behind a difficult problem. I am grateful to my collaborators and co-authors on the works that constitute this thesis, whose discussions sharpened every idea presented here, and to my colleagues in the laboratory for the day-to-day exchange that sustains research. I thank the thesis examination committee for their time and their careful reading. Finally, I thank my family for their unwavering support throughout my doctoral studies.
 
 % \begin{flushright}
-% \emph{Jinming Xu, December 2015}
+% \emph{Molei Qin}
 % \end{flushright}
 }
 
@@ -167,7 +175,11 @@ I wish to express my greatest gratitude to my advisor.
 
 % 1. The Problem 2. The Issues 3. The Approach 4. The Results 5. The Experiments 6. The Applications
 
-My abstracts
+Quantitative trading converts market data into trading decisions and is, at its core, a sequential decision-making problem under uncertainty. Reinforcement learning (RL) is therefore a natural modelling tool, yet financial markets violate the assumptions on which standard RL rests: they are non-stationary, their reward signals carry a low signal-to-noise ratio, the decision horizons can be extreme, and a single mistake can be financially catastrophic. This thesis studies what RL can and cannot do across the breadth of the quantitative-trading stack. It is organised around three tasks that span the trading-frequency spectrum and progress from trade execution to signal generation: second-level high-frequency trading of a single spot asset, minute-level trading of leveraged cryptocurrency futures, and daily-frequency formulaic alpha mining over a full cross-section of equities. For each task, the thesis isolates the specific obstacle that prevents off-the-shelf RL from succeeding and develops a method that removes it.
+
+The first contribution, \textbf{EarnHFT}, addresses high-frequency trading, where the trajectory length (of the order of one million steps per month) cripples data efficiency and rapid regime changes break any single policy. EarnHFT is a three-stage hierarchical RL framework that computes an optimal action-value teacher by dynamic programming to accelerate and stabilise second-level training, assembles a pool of trend-specialised agents, and trains a minute-level router that switches among them. It exceeds the strongest baseline by at least 30\% in profitability across four cryptocurrency markets. The second contribution, \textbf{FineFT}, moves to leveraged futures, where leverage amplifies the aleatoric noise of the reward and where an agent confident outside its competence can be liquidated. FineFT is a three-stage ensemble framework that trains specialists by a selective-update rule driven by an ensemble temporal-difference matrix, learns the capability boundary of each specialist with per-dynamic variational autoencoders, and routes between specialists and a conservative fallback by out-of-distribution detection. It reduces risk by more than 40\% while remaining the most profitable learned method. The third contribution, \textbf{AlphaQD}, turns from execution to signal generation: it diagnoses the boosting-style reward of pool-based RL alpha miners as a source of reward non-stationarity and of an absent generalisation guarantee, and replaces it with a quality-diversity formulation in which a GFlowNet is trained against an archive-independent reward while a MAP-Elites archive, keyed on the normalised daily information-coefficient series as a return-source descriptor, organises diversity and selection. On full-market Chinese A-share and U.S.\ benchmarks it attains the leading signal-quality cluster on both markets with the lowest seed-to-seed variance and turnover among learned pool-style methods.
+
+Read together, the three works trace a single methodological pattern --- decompose a non-stationary market into stationary sub-problems, learn a set of specialists, and compose them through a selector --- and a clear lesson about where the selector belongs: coupling the act of selection into the learning target re-introduces the non-stationarity it was meant to cure, so the selector is progressively decoupled from the policy reward across the three chapters, from a learned online router, to a generative risk-aware router, to a fully structural archive. The thesis thus offers both a set of state-of-the-art methods for distinct trading tasks and a unifying perspective on how reinforcement learning should be structured for non-stationary financial markets.
 
 
 
@@ -221,67 +233,61 @@ My abstracts
 
 \listofnomenclature{ll} % Include a list of Symbols (a three column table)
 {
-\multicolumn{2}{l}{\LARGE{\textbf{Symbols}}}\\[0.618cm]
-$\mathcal{R}^n$                    &the $n$-dimensional Euclidean space\\
-$\mathcal{H}$                      &the Euclidean  space\\
-$\norm{\cdot}$                     &the 2-norm of a vector or matrix in Euclidean space\\
-$\norm{\cdot}_G$                   &the induced norm of a vector in G-space\\
-$\norm{\cdot}_E$                   &the induced norm of a vector or matrix in probabilistic space\\
+\multicolumn{2}{l}{\LARGE{\textbf{Symbols}}}\\[0.4cm]
+$\mathcal{S},\ \mathcal{A}$        & the state space and the action space of an MDP\\
+$\pi_\theta$                       & a policy parameterised by $\theta$\\
+$Q(s,a)$                           & the action-value (Q) function\\
+$Q^*(s,a)$                         & the optimal action-value function\\
+$\gamma$                           & the discount factor\\
+$r_t$                              & the reward received at time $t$\\
+$V_t$                              & the net value (margin balance) of the account at time $t$\\
+$H_t,\ L_t$                        & the position and the leverage at time $t$\\
+$\mathcal{H}(\cdot)$               & the Huber loss\\
+$\mathrm{KL}(\cdot\,\|\,\cdot)$    & the Kullback--Leibler divergence\\
+$\alpha$                           & a formulaic alpha (symbolic expression)\\
+$\mathrm{IC}_t(\alpha)$            & the daily cross-sectional information coefficient at time $t$\\
+$\mathrm{ICIR}(\alpha)$            & the information ratio of the IC series\\
+$\mathbf{r}(\alpha)$               & the centred, unit-normalised IC series (return-source descriptor)\\
+$\beta$                            & a preference (EarnHFT) or reward-temperature (AlphaQD) coefficient\\[0.6cm]
 
-
-$\odot$                            &the Hadamard (component-wise) product\\
-$\otimes$                          &the Kronecker product\\
-$\innprod{\cdot}{\cdot}$           &the inner product of two vectors\\
-$\circ$                            &the composition of functions\\ [0.618cm]
-
-
-$\nabla f$                    &the gradient vector\\
-$\mathcal{C}^k$               &the function with continuous partial derivatives up to $k$ orders\\
-% $T_x\mathcal{M}$              &the tangent space of the set $\mathcal{M}$\\
-% $x_i$                         &the $i$-th component of a vector $x$\\
-$x_{i,k}$                     &the $i$-th component of a vector $x$ at time $k$\\
-$\bar{x}$                     &the vector with the average of all components of $x$ as each element\\
-$\ones$                       &all-ones column vector with proper dimension\\
-$\mathcal{C}$                 &the average space, i.e., $span\{{\bf 1}\}$ \\
-$\mathcal{C}^\perp$           &the disagreement space, i.e., $span^\perp\{{\bf 1}\}$ \\
-% W                             &the weight matrix\\
-% L                             &the Laplacian matrix\\
-$\Pi_\parallel$               &the projection matrix to the average space $\mathcal{C}$\\
-$\Pi_\perp$                   &the projection matrix to the disagreement space $\mathcal{C}^\perp$ \\
-$O(\cdot)$                    &order of magnitude or ergodic convergence rate (running average)\\
-$o(\cdot)$                    &non-ergodic convergence rate\\
-% $O(\cdot)$                    &the ergodic convergence rate stated in terms of the running average\\
-% $o(\cdot)$                    &the non-ergodic convergence rate stated in terms of $x_k$\\
-
-
-
-$\mathcal{N}_i$               &the index set of the neighbors of agent $i$ \\ [1cm]
-
-\multicolumn{2}{l}{\LARGE{\textbf{Acronyms}}}\\[0.618cm]
-DOP                      & Distributed Optimization Problem\\
-EDOP                     & Equivalent Distributed Optimization Problem\\
-SDOP                     & Stochastic Distributed Optimization Problem\\
-OEP                      & Optimal Exchange Problem\\
-OCP                      & Optimal Consensus Problem\\
-DOCP                     & Dynamic Optimal Consensus Problem\\[0.618cm]
-AugDGM           & Augmented Distributed Gradient Methods\\
-AsynDGM          & Asynchronous Distributed Gradient Methods\\
-D-ESC            & Distributed Extremum Seeking Control\\
-D-SPA            & Distributed Simultaneous Perturbation Approach\\
-% D-PDSPA & Distributed Primal-Dual Simultaneous Perturbation Approach\\
-D-FBBS           & Distributed Forward-Backward Bregman Splitting\\
-ADMM             & Alternating Direction Method of Multipliers\\
-DSM              & Distributed (Sub)gradient Method\\[0.618cm]
-
-GAS                      & Globally Asymptotically Stable \\
-UGAS                     & Uniformly Globally Asymptotically Stable \\
-SPAS                     & Semi-globally Practically Asymptotically Stable\\
-USPAS                    & Uniformly Semi-globally Practically Asymptotically Stable\\[0.618cm]
-HoS                      & Heterogeneity of Stepsize\\
-FPR                      & Fixed Point Residual\\
-OBE                      & Objective Error\\[0.618cm]
-i.i.d.           & independent and identically distributed\\
-$a.s.$           & almost sure convergence of a random sequence\\
+\multicolumn{2}{l}{\LARGE{\textbf{Acronyms}}}\\[0.4cm]
+RL          & Reinforcement Learning\\
+HFT         & High-Frequency Trading\\
+MDP         & Markov Decision Process\\
+DP-MDP      & Dynamic Parametric Markov Decision Process\\
+HRL         & Hierarchical Reinforcement Learning\\
+DQN         & Deep Q-Network\\
+DDQN        & Double Deep Q-Network\\
+PPO         & Proximal Policy Optimisation\\
+TD          & Temporal Difference\\
+ETD         & Ensemble Temporal Difference\\
+MoE         & Mixture of Experts\\
+VAE         & Variational Autoencoder\\
+OOD         & Out-of-Distribution\\
+ID          & In-Distribution\\
+QD          & Quality-Diversity\\
+GFlowNet    & Generative Flow Network\\
+TB          & Trajectory Balance\\
+RGCN        & Relational Graph Convolutional Network\\
+MAP-Elites  & Multi-dimensional Archive of Phenotypic Elites\\
+PFS         & Perturbation Fidelity Score\\
+PCA         & Principal Component Analysis\\
+RPN         & Reverse Polish Notation\\
+GP          & Genetic Programming\\
+DTW         & Dynamic Time Warping\\
+LOB         & Limit Order Book\\
+OHLC        & Open-High-Low-Close\\
+IC          & Information Coefficient\\
+ICIR        & Information-Coefficient Information Ratio\\
+MACD        & Moving Average Convergence Divergence\\
+IV          & Imbalance Volume\\
+TR          & Total Return\\
+ASR         & Annualised Sharpe Ratio\\
+ACR         & Annualised Calmar Ratio\\
+ASoR        & Annualised Sortino Ratio\\
+MDD         & Maximum Drawdown\\
+AVOL        & Annualised Volatility\\
+Crypto      & Cryptocurrency\\
 }
 
 %----------------------------------------------------------------------------------------
@@ -302,13 +308,16 @@ $a.s.$           & almost sure convergence of a random sequence\\
 % Include the chapters of the thesis as separate files from the Chapters folder
 % Uncomment the lines as you write the chapters
 
-\input{./Chapters/Chapter1}
-\part{Part Name: Use it when there are many chapters}
-\input{./Chapters/Chapter2}
-\input{./Chapters/Chapter3}
-\part{Again for Second Part}
-\input{./Chapters/Chapter4}
-\input{./Chapters/Chapter5}
+\part{Preliminaries}
+\input{./Chapters/Chapter1} % Introduction
+\input{./Chapters/Chapter2} % Background and Literature Review
+\part{Reinforcement Learning for Trade Execution}
+\input{./Chapters/Chapter3} % EarnHFT: Hierarchical RL for High-Frequency Trading
+\input{./Chapters/Chapter4} % FineFT: Risk-Aware Ensemble RL for Futures Trading
+\part{Reinforcement Learning for Signal Generation}
+\input{./Chapters/Chapter5} % AlphaQD: Quality-Diversity RL for Formulaic Alpha Mining
+\part{Epilogue}
+\input{./Chapters/Chapter6} % Conclusion and Future Work
 
 
 %----------------------------------------------------------------------------------------
@@ -333,27 +342,19 @@ $a.s.$           & almost sure convergence of a random sequence\\
 
 \authorpublications{
 
-\section*{Awards}
-
-\begin{itemize}
-	\item \textbf{Best Paper Awards}, ``A Great System,'' \emph{Nature}.
-\end{itemize}
-
-\section*{Patents}
-\begin{itemize}
-	\item \textbf{A Great System}, ``A Great System,'' \emph{Nature}.
-\end{itemize}
-
-\section*{Journal Articles}
-
-\begin{itemize}
-    \item \textbf{My name} and My colleague, ``A Great System,'' \emph{Nature}.
-\end{itemize}
+\noindent The following publications and manuscripts arose from the research conducted during this doctoral candidature. Author lists are abbreviated; the candidate is the leading author of each. (Co-author names and venues are to be finalised by the candidate.)
 
 \section*{Conference Proceedings}
 
 \begin{itemize}
-  \item \textbf{My name}, My colleague 1, My colleague 3 and My colleague 3, ``Greater System,'' in \emph{Conference of Vision, 2018}.
+  \item \textbf{Molei Qin} et al., ``EarnHFT: Efficient Hierarchical Reinforcement Learning for High Frequency Trading,'' in \emph{Proceedings of the AAAI Conference on Artificial Intelligence (AAAI)}, 2024. (Chapter~\ref{ch:earnhft})
+\end{itemize}
+
+\section*{Manuscripts Under Review}
+
+\begin{itemize}
+  \item \textbf{Molei Qin} et al., ``FineFT: Efficient and Risk-Aware Ensemble Reinforcement Learning for Futures Trading,'' submitted to \emph{ACM SIGKDD Conference on Knowledge Discovery and Data Mining (KDD)}, 2026. (Chapter~\ref{ch:fineft})
+  \item \textbf{Molei Qin} et al., ``AlphaQD: Quality-Diversity Reinforcement Learning for Formulaic Alpha Mining,'' submitted to \emph{ACM SIGKDD Conference on Knowledge Discovery and Data Mining (KDD)}. (Chapter~\ref{ch:alphaqd})
 \end{itemize}
 
 }
@@ -367,6 +368,6 @@ $a.s.$           & almost sure convergence of a random sequence\\
 \label{Bibliography}
 \setstretch{1}
 \bibliographystyle{unsrtnat}
-\bibliography{References/first_paper,References/second_paper}
+\bibliography{References/thesis}
 
 \end{document}

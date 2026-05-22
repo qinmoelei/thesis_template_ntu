@@ -3,69 +3,101 @@
 
 \chapter{Introduction} % Main chapter title
 \chaptermark{Introduction}
-\label{ch:introduction} % For referencing the chapter elsewhere, use \ref{Chapter1} 
+\label{ch:introduction} % For referencing the chapter elsewhere, use \cref{ch:introduction}
 
 %----------------------------------------------------------------------------------------
-%	SECTION 1
-%----------------------------------------------------------------------------------------
+\section{Quantitative Trading and Reinforcement Learning}
+\label{sec:intro_qt_rl}
 
-\section{Some useful hints}
+Quantitative trading is the discipline of converting market data into trading decisions through explicit, data-driven rules. A quantitative strategy ingests a stream of prices, volumes, and order-flow signals, and at each decision point it must choose what to hold and how to adjust that holding. Stated this way, quantitative trading is, at its core, a problem of \emph{sequential decision-making under uncertainty}: the present action changes the portfolio, the portfolio interacts with a stochastic and adversarial market, and the consequences are realised only over a horizon of subsequent steps. The natural formal language for such problems is reinforcement learning (RL), in which an agent learns a policy that maps states to actions so as to maximise a cumulative reward.
 
-My figure citation: \fref{fig:demo1}. (command: fref)
+Reinforcement learning is attractive for trading for reasons that distinguish it from the supervised learning that dominates much of quantitative finance. Supervised approaches predict a label---a future return, a price direction---under the assumption that training samples are independent and identically distributed (IID), and they optimise a one-step predictive loss that is agnostic to how the prediction is used. Trading violates both premises. Transaction costs and inventory constraints make the profitability of an action depend on the current position, so consecutive decisions are coupled rather than independent; and the quantity a trader actually cares about is the long-horizon, risk-adjusted profit of a \emph{sequence} of decisions, not the accuracy of any single forecast. Reinforcement learning addresses both directly: it optimises a return that accumulates over the trajectory, and it models the path dependence induced by costs and positions as part of the environment dynamics. Encouraged by RL's successes in games and robotics, a substantial body of work has applied it across the quantitative-trading stack, from order execution and intraday trading to portfolio management~\cite{sun2022deepscalper,briola2021deep,zhu2022quantitative}.
 
-My section citation: \sref{sec:contribution}. (command: sref)
-
-My Chaptere citation: \cref{ch:introduction}. (command: cref)
-
-My Paper citation: \cite{bauschke2011convex}. (notice back reference to page from bibliograph)
-
-My equation citation: \eqref{eq:equ2}. (command: eqref), or cite equation by tag: \eqref{eq:equ1}.
-
-\begin{equation}\label{eq:equ1}
-F(\theta)=\sum_{i=1}^mf_i(\theta) \tag{DOP}
-\end{equation}
-
-\begin{equation}\label{eq:equ2}
-F(\theta)=\sum_{i=1}^mf_i(\theta)
-\end{equation}
-
-\begin{figure}[htbp]
-  \centering
-    \includegraphics[width=0.85\textwidth]{Chapter1/demo1}
-  \caption{An illustration.}
-  \label{fig:demo1}
-\end{figure}
-
-
+The premise of this thesis is therefore that reinforcement learning is the right tool for quantitative trading; its subject is the gap between that premise and practice. Financial markets violate, sometimes severely, the assumptions on which standard RL algorithms were designed and validated. The contribution of this thesis is to identify, for several distinct and economically important trading tasks, exactly which assumption breaks, and to design a method that restores the broken assumption rather than papering over its symptoms.
 
 %----------------------------------------------------------------------------------------
-\section{Major Contributions}\label{sec:contribution}
-Our main contributions can be stated as follows:
+\section{Why Reinforcement Learning is Hard in Financial Markets}
+\label{sec:intro_challenges}
+
+The difficulties that financial markets pose for reinforcement learning recur across tasks, although each task stresses a different subset of them. It is useful to enumerate them once, because the technical chapters can then be read as attacks on specific items in this list.
+
 \begin{itemize}
-\item \emph{First part}: My first contributions, several lines
+\item \textbf{Non-stationarity.} The defining property of financial markets is that their statistics drift. The relationship between observable features and future returns changes over time as market regimes shift between trends, ranges, and crises. This breaks the stationary-MDP assumption underpinning convergence guarantees for value- and policy-based RL: a policy that is optimal on the training distribution can be actively harmful once the regime changes, because the environment the agent now faces is not the one it was trained on.
 
+\item \textbf{Low signal-to-noise ratio.} The predictable component of asset returns is small relative to the noise. The reward an RL agent receives is therefore a faint signal buried in stochastic price movement, which slows learning, inflates the variance of gradient estimates, and makes it easy to overfit idiosyncratic patterns of the training window that do not generalise.
 
-\item \emph{Second}: Second contributions, several lines
+\item \textbf{Extreme decision horizons.} At high frequency, the number of decision steps over an evaluation period is enormous. A second-level agent assessed over a few weeks faces a horizon on the order of one million steps, against which the few-thousand-step horizons of standard RL benchmarks~\cite{mnih2013playing} are small. Long horizons demand far more data to converge~\cite{zhang2023towards} and make both training and evaluation computationally heavy.
 
+\item \textbf{Risk and irreversibility.} A trading loss is real and, under leverage, can be catastrophic: a single excursion into an unfamiliar market state can liquidate an account. Unlike a game, where a poor episode merely lowers the average score, trading has hard, asymmetric downside that an expected-return objective alone does not capture.
 
-\item \emph{Third name}: 
-Third contributions, several lines
+\item \textbf{Reward design and coupling.} What constitutes a good reward is itself non-trivial. When the objective concerns a \emph{set} of strategies or signals---for example, the marginal contribution of a new factor to an existing pool---it is tempting to fold the pool into the reward. Doing so couples the learning target to a quantity that itself evolves during training, silently re-introducing non-stationarity through the reward.
 
+\item \textbf{Generalisation.} The training window is finite and the future is non-stationary, so a discovered strategy or signal must hold up out of sample. This places a premium on methods whose effective complexity is small relative to the search space, and on selection rules that do not merely fit the training window.
+\end{itemize}
+
+No single method removes all of these obstacles at once, nor should one expect it to: the obstacles trade off against one another, and the binding constraint differs by task. This thesis instead studies three concrete tasks, isolates the obstacle that is decisive for each, and removes it.
+
+%----------------------------------------------------------------------------------------
+\section{Tasks, Challenges, and Solutions}
+\label{sec:intro_tasks}
+
+The three studies that constitute this thesis are organised along the spectrum of trading frequency and, with it, a progression from \emph{trade execution} to \emph{signal generation}. \tref{tab:intro_overview} summarises them; the remainder of this section introduces each in turn.
+
+\begin{table}[!htb]
+\centering
+\caption[Overview of the three studies.]{The three trading tasks studied in this thesis, the decisive obstacle each presents to standard reinforcement learning, and the method developed in response. The tasks span the frequency spectrum and progress from execution to signal generation.}
+\label{tab:intro_overview}
+\renewcommand{\arraystretch}{1.3}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{p{2.1cm} p{2.6cm} p{4.6cm} p{4.8cm}}
+\toprule
+\textbf{Chapter} & \textbf{Task} & \textbf{Decisive challenge} & \textbf{Method} \\
+\midrule
+\cref{ch:earnhft} (EarnHFT) & Second-level spot high-frequency trading & Extreme horizon ($\sim 10^6$ steps) cripples data efficiency; regime changes break any single policy & Three-stage \emph{hierarchical} RL: dynamic-programming Q-teacher, a pool of trend specialists, and a minute-level router \\
+\cref{ch:fineft} (FineFT) & Minute-level leveraged futures trading & Leverage amplifies reward stochasticity; agents are unaware of their competence boundary and are liquidated on unseen states & Three-stage \emph{ensemble} RL: selective-update specialists, per-dynamic VAE boundaries, and risk-aware routing with a conservative fallback \\
+\cref{ch:alphaqd} (AlphaQD) & Daily formulaic alpha mining over a full cross-section & Boosting-style rewards couple the target to an evolving pool, causing non-stationarity and offering no generalisation handle & Three-stage \emph{quality-diversity} RL: GFlowNet exploration under an archive-independent reward, MAP-Elites archiving, and top-$k$ cell export \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\paragraph{Task I: High-frequency execution (\cref{ch:earnhft}).} The first task is second-level high-frequency trading (HFT) of a single cryptocurrency, where the agent repeatedly adjusts its position to profit from short-lived price fluctuations. Two obstacles dominate. First, the horizon is extreme: evaluating a second-level agent over weeks entails roughly one million steps per month, so naive RL is hopelessly data-inefficient. Second, the market is non-stationary at a scale that defeats any single policy, because strategies that profit in a rising market lose in a falling one. EarnHFT resolves both through hierarchy. It exploits a structural feature of the execution task---that at high frequency a single trader's orders do not move prices---to compute, by dynamic programming over future prices, an optimal action-value ``teacher'' that accelerates and stabilises second-level training. It then trains a \emph{pool} of agents, each specialised to a market trend, and a minute-level \emph{router} that selects among them as conditions change. EarnHFT exceeds the strongest baseline by at least 30\% in profitability across four markets.
+
+\paragraph{Task II: Leveraged futures (\cref{ch:fineft}).} The second task moves from spot to leveraged futures, introducing long and short positions and high leverage. Leverage changes the nature of the difficulty in two ways. It amplifies the aleatoric noise of the reward, so that nearly identical states under identical actions can yield wildly different outcomes, undermining convergence; and it raises the cost of error to the point of liquidation, which exposes a deficiency that low-leverage methods can ignore---the absence of any \emph{self-awareness of competence}. An agent that acts confidently outside the market states it was trained on can be wiped out by a single black-swan move. FineFT addresses both. It trains an ensemble of specialists efficiently through a selective-update rule that assigns each transition to the learner that already explains it best and its neighbours; it learns the \emph{capability boundary} of each specialist with a per-dynamic variational autoencoder; and it routes between the specialists and a conservative fallback by detecting when the current market state is out of distribution. FineFT reduces risk by more than 40\% while remaining the most profitable learned method.
+
+\paragraph{Task III: Formulaic alpha mining (\cref{ch:alphaqd}).} The third task departs from execution altogether. Rather than deciding how to trade, it asks an agent to \emph{generate} the predictive signals---short, interpretable, symbolic formulas, or ``alphas''---that a downstream portfolio is built upon. Here the binding obstacle is one of reward design. The dominant line of RL alpha miners scores a new formula by its marginal contribution to a running pool, which is a boosting-style objective: the reward changes every time the pool changes, so the policy is trained against a moving target, and the resulting ensemble carries no a-priori generalisation guarantee. AlphaQD diagnoses this coupling and removes it. It trains a graph-based GFlowNet generator against a reward that depends only on the candidate and a fixed training window---never on the archive---and it relocates diversity into a separate quality-diversity archive whose behaviour descriptor is the normalised daily information-coefficient series of each formula, an empirical proxy for the formula's return source. On full-market Chinese A-share and U.S.\ benchmarks AlphaQD attains the leading signal-quality cluster on both markets with the lowest seed-to-seed variance and turnover among learned pool-style methods.
+
+%----------------------------------------------------------------------------------------
+\section{A Recurring Methodological Pattern}
+\label{sec:intro_pattern}
+
+Although the three studies were motivated by different tasks and developed independently, they share a methodological skeleton that is worth naming, because it organises the thesis. In each case the response to non-stationarity is the same three-move pattern:
+
+\begin{enumerate}
+\item \textbf{Decompose} the non-stationary market into sub-problems that are approximately stationary---by market trend in EarnHFT, by latent dynamic in FineFT, by return-source behaviour in AlphaQD.
+\item \textbf{Specialise} a learner to each sub-problem, producing a diverse pool of experts rather than a single monolithic policy.
+\item \textbf{Select} or compose among the specialists at deployment through a selector that responds to the prevailing conditions.
+\end{enumerate}
+
+The thesis does not impose this pattern as dogma; it emerges because decomposition is the most direct way to convert a non-stationary problem into a family of problems on which RL's stationary-MDP assumption approximately holds. What does deserve emphasis is a lesson that surfaces only when the three selectors are compared. The selector is the component that decides which specialist acts, and the natural temptation is to \emph{learn} it jointly with the specialists, or to fold the selection criterion into the learning reward. Both couplings re-introduce, through the back door, the very non-stationarity the decomposition was meant to remove: a learned router changes the effective environment of the specialists as it learns, and a selection-aware reward changes the target as the pool evolves. Across the three chapters the selector is therefore progressively \emph{decoupled} from the policy reward---from a learned online router in EarnHFT, to a generative, risk-aware heuristic router that requires no policy learning in FineFT, to a fully structural archive whose selection rule never touches the generator's reward in AlphaQD. This decoupling is the connective thread of the thesis and the single most transferable insight it offers.
+
+%----------------------------------------------------------------------------------------
+\section{Contributions}
+\label{sec:intro_contributions}
+
+The contributions of this thesis are as follows.
+
+\begin{itemize}
+\item \textbf{EarnHFT} (\cref{ch:earnhft}): the first, to our knowledge, hierarchical reinforcement-learning framework for single-asset high-frequency trading. Its technical core is an optimal action-value teacher computed by dynamic programming over future prices, which is shown both empirically and theoretically to accelerate and stabilise second-level training; together with trend-conditioned specialist training and a minute-level router, it delivers a 30\% profitability margin over the strongest baseline.
+
+\item \textbf{FineFT} (\cref{ch:fineft}): a risk-aware ensemble framework for leveraged futures. It introduces a selective-update rule, driven by an ensemble temporal-difference matrix, that trains diverse specialists efficiently and segments the market automatically; and it is the first method to use variational autoencoders for out-of-distribution detection in RL for quantitative trading, turning competence-awareness into an explicit, generative risk control that reduces risk by more than 40\%.
+
+\item \textbf{AlphaQD} (\cref{ch:alphaqd}): a quality-diversity reinforcement-learning method for formulaic alpha mining. It diagnoses the boosting-style reward of pool-based miners as the joint source of reward non-stationarity and absent generalisation control, and replaces it with an archive-independent reward and a MAP-Elites archive keyed on a novel return-source behaviour descriptor. The resulting selection rule admits a finite-sample ensemble generalisation bound whose complexity scales with the number of occupied archive cells rather than the cardinality of the formula space.
+
+\item \textbf{A unifying perspective} (\cref{ch:introduction}, \cref{ch:conclusion}): the recognition that decompose--specialise--select is a general response to market non-stationarity, and the accompanying lesson that the selector should be decoupled from the policy reward, supported by three increasingly decoupled instantiations.
 \end{itemize}
 
 %----------------------------------------------------------------------------------------
-% SECTION 2
-%----------------------------------------------------------------------------------------
-\section{Outline of the Thesis}
+\section{Organisation of the Thesis}
+\label{sec:intro_outline}
 
-\cref{ch:introduction} introduces ...
-
-\cref{ch:literature_review} reviews ...
-
-
-
-More chapters ....
-
-
-....
-
+The thesis is organised into four parts. \textbf{Part~I} (Preliminaries) comprises this introduction and \cref{ch:literature_review}, which establishes the financial and reinforcement-learning background shared by the technical chapters and surveys related work organised by task. \textbf{Part~II} (Reinforcement Learning for Trade Execution) contains the two execution studies: \cref{ch:earnhft} presents EarnHFT for high-frequency trading, and \cref{ch:fineft} presents FineFT for leveraged futures. \textbf{Part~III} (Reinforcement Learning for Signal Generation) contains \cref{ch:alphaqd}, which presents AlphaQD for formulaic alpha mining. \textbf{Part~IV} (Epilogue) consists of~\cref{ch:conclusion}, which revisits the unifying perspective, states the limitations of each study, and outlines directions for future work. Supporting proofs and extended derivations are collected in the appendix.

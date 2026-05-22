@@ -1,81 +1,143 @@
 %!TEX root=../mythesis.tex
-% Chapter Template
+% Chapter 2
 
-\chapter{Literature Review} % Main chapter title
-\chaptermark{Literature Review}  % replace the chapter name with its abbreviated form
-\label{ch:literature_review} % Change X to a consecutive number; for referencing this chapter elsewhere, use \ref{ChapterX}
+\chapter{Background and Literature Review} % Main chapter title
+\chaptermark{Background and Literature Review}
+\label{ch:literature_review}
 
-%\lhead{Chapter X. \emph{Chapter Title Here}} % Change X to a consecutive number; this is for the header on each page - perhaps a shortened title
-%-----------------------------------
-% SECTION 1
-%-----------------------------------
+This chapter establishes the shared vocabulary and surveys the prior work on which the three technical chapters build. \sref{sec:bg_finance} introduces the financial instruments, market microstructure, and evaluation metrics common to all three studies; the metric definitions given there are referenced rather than repeated in later chapters. \sref{sec:bg_rl} reviews the reinforcement-learning machinery---from Markov decision processes to GFlowNets and quality-diversity search---used across the thesis. \sref{sec:bg_rl4qt} surveys reinforcement learning for quantitative trading, organised by task. \sref{sec:bg_gaps} synthesises the open challenges that motivate \cref{ch:earnhft}, \cref{ch:fineft}, and \cref{ch:alphaqd}.
 
-\section{Part 1}
+%----------------------------------------------------------------------------------------
+\section{Financial Markets and Quantitative Trading}
+\label{sec:bg_finance}
 
-When you cite a paper \cite{bauschke2011convex}, the back reference from bibgraph will apper as page number.
+\subsection{Instruments and Market Microstructure}
+\label{sec:bg_instruments}
 
-You can also cite paper with author name using the command `citet': such as: \citet{bauschke2011convex}.
+The three studies operate on three increasingly complex trading settings. EarnHFT (\cref{ch:earnhft}) trades a single \emph{spot} cryptocurrency, where the asset is bought and sold outright and only long positions are taken. FineFT (\cref{ch:fineft}) trades \emph{perpetual futures}, standardised contracts that permit both long and short positions, magnify exposure through leverage, and incur a periodic funding fee. AlphaQD (\cref{ch:alphaqd}) operates on the \emph{cross-section} of an entire equity market, where the object of interest is the relative ranking of thousands of assets on each day rather than the timing of a single instrument. The following concepts recur throughout.
 
-\section{Part 2}
+\paragraph{Limit order book (LOB).} The limit order book aggregates all resting buy and sell orders by price level and is the standard description of market microstructure~\cite{madhavan2000market}. An $m$-level LOB at time $t$ is denoted $B_t=(p_t^{b_1},p_t^{a_1},q_t^{b_1},q_t^{a_1},\dots,p_t^{b_m},p_t^{a_m},q_t^{b_m},q_t^{a_m})$, where $p_t^{b_i}$ and $p_t^{a_i}$ are the level-$i$ bid and ask prices and $q_t^{b_i},q_t^{a_i}$ are the corresponding quantities. \fref{fig:bg_lob} illustrates a snapshot. A \emph{market order} consumes liquidity from successive levels of the book, so its average execution price differs from the best quote---an effect known as slippage that any high-fidelity simulator must model.
 
-cite another paper \cite{DynamicOptim_Opportunities_challenges}.
+\begin{figure}[!htb]
+  \centering
+  \includegraphics[width=0.7\textwidth]{Chapter2/lob}
+  \caption[A limit order book snapshot.]{A snapshot of a multi-level limit order book. Resting bids (buy orders) and asks (sell orders) are aggregated by price level; a market order walks the book from the best quote inward, so larger orders execute at progressively worse prices.}
+  \label{fig:bg_lob}
+\end{figure}
 
-\begin{lemma}[My lemma]
-	A great lemma.
-	\begin{equation}
-		c^2=a^2+b^2
-	\end{equation}
-\end{lemma}
+\paragraph{OHLC and trades.} Executed transactions are summarised over a time interval by the open, high, low, and close prices, denoted $x_t=(p_t^o,p_t^h,p_t^l,p_t^c)$. The raw stream of executed orders, or trades, records price, quantity, and side. For leveraged contracts, a \emph{mark price} $M_t$ is used as the reference fair value at which the position is valued and against which liquidation is assessed.
 
-\begin{theorem}[My theorem]
-	A great theorem.
-	\begin{equation}
-		c^2=a^2+b^2
-	\end{equation}
-\end{theorem}
+\paragraph{Technical indicators.} Both microstructure and price-history features are summarised by technical indicators---deterministic functions of recent LOB and trade data designed to expose latent patterns, denoted $y_t=\phi(\cdot)$. Examples are the imbalance volume (IV)~\cite{chordia2002order}, which measures buying versus selling pressure in the book, and the moving-average convergence divergence (MACD)~\cite{krug2022enforcing}, which contrasts trends over different windows. These indicators are inputs to the RL state in all three studies, but as standalone rules they are sensitive to hyperparameters and produce false signals in volatile markets.
 
-\begin{proof}
-	The proof is intuitive.
-\end{proof}
+\paragraph{Position, leverage, and value.} A trader's position $H_t$ is the signed quantity held; under leverage $L_t$, the same capital supports a larger position and amplifies both gains and losses. The account value---net value for spot, margin balance for futures---is the sum of cash and the marked value of the position, net of realised costs such as commissions and funding fees.
 
-\begin{corollary}[My corollary]
-	A great corollary.
-	\begin{equation}
-		c^2=a^2+b^2
-	\end{equation}
-\end{corollary}
+\subsection{The Trading-Frequency Spectrum}
+\label{sec:bg_frequency}
 
-\begin{proposition}[My proposition]
-	A great proposition.
-	\begin{equation}
-		c^2=a^2+b^2
-	\end{equation}
-\end{proposition}
+Trading strategies are conventionally classified by the frequency at which they act, and the binding difficulty changes along this spectrum. \emph{High-frequency} strategies act at the second or sub-second scale and profit from fleeting microstructure imbalances; their defining computational challenge is the sheer length of the decision horizon. \emph{Medium-frequency} strategies act at the minute-to-hour scale, where leverage and overnight or funding risk become material. \emph{Low-frequency} strategies act daily or slower; here the difficulty is not the horizon but the discovery of robust predictive signals from a low signal-to-noise cross-section. This thesis traverses the entire spectrum, from second-level execution in \cref{ch:earnhft} to daily signal generation in \cref{ch:alphaqd}.
 
-\begin{example}[My example]
-	A great example.
-	\begin{equation}
-		c^2=a^2+b^2
-	\end{equation}
-\end{example}
+\subsection{Evaluation Metrics}
+\label{sec:bg_metrics}
 
-\begin{definition}[My definition]
-	A great definition.
-	\begin{equation}
-		c^2=a^2+b^2
-	\end{equation}
-\end{definition}
+Strategies are evaluated at two layers. The \emph{portfolio layer} measures the realised profit-and-loss of an executed strategy; the \emph{signal layer}, used for alpha mining, measures the predictive quality of a signal independently of any portfolio construction. Let $\mathbf{ret}=(ret_1,\dots,ret_t)$ denote the per-step return series and $m$ the number of steps in a year.
 
-\begin{assumption}[My assumption]
-	A great assumption.
-	\begin{equation}
-		c^2=a^2+b^2
-	\end{equation}
-\end{assumption}
+\paragraph{Portfolio-layer metrics.} The following six metrics are used throughout \cref{ch:earnhft} and \cref{ch:fineft}, and the return/risk pair recurs in \cref{ch:alphaqd}.
+\begin{itemize}
+\item \textbf{Total Return (TR)}: the overall return over the trading period, $TR=(V_t-V_1)/V_1$, where $V_1$ and $V_t$ are the initial and final account values.
+\item \textbf{Annualised Volatility (AVOL)}: $\sigma[\mathbf{ret}]\sqrt{m}$, a measure of risk.
+\item \textbf{Maximum Drawdown (MDD)}: the largest peak-to-trough decline of the value curve, capturing the worst case.
+\item \textbf{Annualised Sharpe Ratio (ASR)}: $\mathbb{E}[\mathbf{ret}]/\sigma[\mathbf{ret}]\sqrt{m}$, return per unit of total risk.
+\item \textbf{Annualised Calmar Ratio (ACR)}: $\mathbb{E}[\mathbf{ret}]\, m/\mathrm{MDD}$, return per unit of worst-case loss.
+\item \textbf{Annualised Sortino Ratio (ASoR)}: $\mathbb{E}[\mathbf{ret}]\sqrt{m}/DD$, where $DD$ is the downside deviation; it penalises only harmful volatility.
+\end{itemize}
 
-\begin{remark}[My remark]
-	A great remark.
-	\begin{equation}
-		c^2=a^2+b^2
-	\end{equation}
-\end{remark}
+\paragraph{Signal-layer metrics.} For a cross-sectional signal $\alpha$ and an $h$-day forward return $r^{(h)}$, the daily \emph{information coefficient} is the cross-sectional correlation $\mathrm{IC}_t(\alpha)=\corr(\alpha_t,r^{(h)}_t)$. Its time average and stability are combined into the \emph{information ratio} $\mathrm{ICIR}(\alpha)=\overline{\mathrm{IC}(\alpha)}/\hat\sigma(\mathrm{IC}(\alpha))$, the canonical scalar quality of a single alpha~\cite{kakushadze2016101}, since it rewards predictive strength and temporal stability simultaneously. The rank-based variant, \emph{RankIC}, replaces Pearson with Spearman correlation and is robust to outliers.
+
+%----------------------------------------------------------------------------------------
+\section{Reinforcement Learning Foundations}
+\label{sec:bg_rl}
+
+\subsection{Markov Decision Processes}
+\label{sec:bg_mdp}
+
+A Markov decision process (MDP) is the tuple $(\mathcal{S},\mathcal{A},P,r,\gamma,T)$, where $\mathcal{S}$ is the state space, $\mathcal{A}$ the action space, $P:\mathcal{S}\times\mathcal{A}\times\mathcal{S}\to[0,1]$ the transition function, $r$ the reward function, $\gamma\in(0,1]$ the discount factor, and $T$ the horizon. At each step the agent observes $s_t$, takes an action $a_t$ under a policy $\pi_\theta:\mathcal{S}\times\mathcal{A}\to[0,1]$, and receives a reward $r_t$ and a next state $s_{t+1}$. The objective is to find a policy maximising the expected discounted return $\pi^\star=\argmax_\theta \mathbb{E}_{\pi_\theta}[\sum_{t=0}^T\gamma^t r_t]$. The convergence guarantees of standard RL algorithms presuppose that $P$ and $r$ are \emph{stationary}; the central difficulty of this thesis is that financial environments are not, a fact made explicit in \cref{ch:fineft} by the dynamic-parametric MDP formulation that augments the tuple with a slowly evolving latent dynamic.
+
+\subsection{Value-Based Methods}
+\label{sec:bg_value}
+
+Value-based methods learn the action-value function $Q(s,a)$, the expected return of taking $a$ in $s$ and acting optimally thereafter. Q-learning updates $Q$ towards the temporal-difference (TD) target $r+\gamma\max_{a'}Q(s',a')$. The Deep Q-Network (DQN)~\cite{mnih2015human} parameterises $Q$ with a neural network and stabilises learning through experience replay and a target network. Double DQN (DDQN)~\cite{van2016deep} decouples action selection from evaluation to reduce the overestimation bias of the $\max$ operator. EarnHFT and FineFT both build on DDQN, augmenting its TD target with supervision from a dynamic-programming teacher; the convergence of this augmented operator is established in \cref{ch:earnhft}.
+
+\subsection{Policy-Based Methods}
+\label{sec:bg_policy}
+
+Policy-based methods optimise the policy directly. Proximal Policy Optimisation (PPO)~\cite{schulman2017proximal} maximises a clipped surrogate objective with importance sampling, trading some bias for stability and sample reuse. In trading, policy-based methods are prone to collapsing onto trivial policies---holding the current position---when transaction costs make any action locally unprofitable, a failure mode documented empirically in \cref{ch:earnhft}.
+
+\subsection{Distributional and Ensemble Reinforcement Learning}
+\label{sec:bg_dist_ensemble}
+
+Two families address the high stochasticity of financial rewards. \emph{Distributional} RL learns the full return distribution rather than its mean; quantile-regression DQN~\cite{dabney2018distributional} and its risk-averse variants represent the return by a set of quantiles and can act on the lower tail to avoid worst cases. \emph{Ensemble} RL trains several learners and aggregates them: averaged DQN reduces target variance, while SUNRISE~\cite{lee2021sunrise} treats inter-learner disagreement as a measure of uncertainty and down-weights uncertain samples. FineFT belongs to the ensemble family but departs from prior work by updating learners \emph{selectively} rather than uniformly, which is what allows specialists to emerge.
+
+\subsection{Hierarchical Reinforcement Learning}
+\label{sec:bg_hrl}
+
+Hierarchical RL decomposes a long-horizon task into a hierarchy of sub-tasks, typically a high-level policy that selects among low-level policies or temporally extended options. In trading, this naturally maps onto a separation of time scales: a slow policy that reacts to macro conditions and fast policies that execute. Prior hierarchical trading frameworks address portfolio management and order execution~\cite{wang2021commission} or select among strategies by market situation~\cite{niu2022metatrader}. EarnHFT brings this idea to single-asset high-frequency trading, where the high-level router operates at the minute scale and the low-level specialists at the second scale.
+
+\subsection{Generative Flow Networks}
+\label{sec:bg_gflownet}
+
+Generative flow networks (GFlowNets)~\cite{bengio2021gflownet} learn a stochastic policy that constructs compositional objects---here, symbolic expressions---step by step, such that the probability of producing a complete object is proportional to a terminal reward. Trained by the trajectory-balance objective~\cite{malkin2022trajectorybalance}, a GFlowNet samples proportionally to reward rather than collapsing onto the single maximiser, so it covers many high-reward modes of the search space under a fixed budget. This mode-covering property is precisely what an alpha-mining search requires, and AlphaQD adopts a relational-graph GFlowNet as its generator.
+
+\subsection{Quality-Diversity Search and MAP-Elites}
+\label{sec:bg_qd}
+
+Quality-diversity (QD) algorithms seek not a single optimum but an archive of high-quality solutions that are diverse along a chosen \emph{behaviour descriptor}. MAP-Elites discretises the descriptor space into cells and retains the best solution(s) per cell, yielding a structured population that covers the behaviour space. QD has not previously been applied to formulaic alpha mining; AlphaQD's contribution is to identify a meaningful behaviour descriptor for this domain---the normalised daily IC series, an empirical proxy for a formula's return source---and to use the archive as the mechanism that organises diversity and selection outside the learning reward.
+
+\subsection{Variational Autoencoders and Out-of-Distribution Detection}
+\label{sec:bg_vae}
+
+A variational autoencoder (VAE)~\cite{kingma2013auto} learns a probabilistic encoder that maps inputs to a regularised latent distribution and a decoder that reconstructs them. Because it provides a principled, probabilistic measure of how well a new input matches the training distribution, the VAE reconstruction loss is a standard signal for out-of-distribution (OOD) detection. FineFT trains a VAE per market dynamic and uses its loss to detect when the current market state lies outside a specialist's competence, converting OOD detection into an explicit risk control.
+
+%----------------------------------------------------------------------------------------
+\section{Reinforcement Learning for Quantitative Trading}
+\label{sec:bg_rl4qt}
+
+\subsection{Intraday and Low-Frequency Trading}
+\label{sec:bg_intraday}
+
+Reinforcement learning has been applied widely to intraday and daily trading. DeepScalper~\cite{sun2022deepscalper} uses a hindsight bonus and an auxiliary task to improve generalisation in intraday trading. These methods design a single powerful agent and, while effective at their target frequency, do not address the horizon explosion of true high-frequency trading or the regime non-stationarity that defeats a monolithic policy over long deployments.
+
+\subsection{High-Frequency Trading}
+\label{sec:bg_hft}
+
+For high-frequency trading specifically, DRA~\cite{briola2021deep} couples an LSTM~\cite{hochreiter1997long} state encoder with PPO, and CDQNRP~\cite{zhu2022quantitative} adds random perturbation to the target update to stabilise a convolutional DQN. These methods concentrate on building one robust agent for short-term trading and, as a result, struggle to maintain performance as the market trend changes. The dominant alternative in practice remains rule-based technical analysis (MACD, IV), which is brittle to hyperparameters. EarnHFT and FineFT depart from the single-agent paradigm by training pools of specialists.
+
+\subsection{Hierarchical and Routing Approaches}
+\label{sec:bg_routing}
+
+A growing line of work routes among multiple strategies. MetaTrader~\cite{niu2022metatrader} learns a router that picks the most suitable strategy for the current market; classical online-learning routers such as Winnow~\cite{zhang2000regularized} reweight predictors by recent performance. EarnHFT~\cite{qin2024earnhft} and MacroHFT~\cite{zong2024macrohft} construct hierarchical MDPs for high-frequency trading with optimal-action-value supervision. These routers couple selection to recent performance or learn it online, which, as this thesis argues, re-introduces non-stationarity; FineFT and AlphaQD progressively decouple the selector from the learning target.
+
+\subsection{Formulaic Alpha Mining}
+\label{sec:bg_alpha}
+
+Formulaic alpha mining searches for short symbolic expressions whose cross-sectional values predict returns. Hand-crafted catalogues such as Alpha101~\cite{kakushadze2016101} gave way to automated search. Genetic programming~\cite{stephens2015gplearn} evolves expression trees by mutation and crossover, controlling diversity through population dynamics and post-hoc correlation filters. The reinforcement-learning line begins with AlphaGen~\cite{yu2023alphagen}, which casts mining as a PPO problem whose terminal reward is the marginal contribution of a new alpha to a running pool. AlphaQCM~\cite{zhu2025alphaqcm} adds a distributional value head and a variance bonus; AlphaForge~\cite{shi2025alphaforge} replaces the RL search with a generator-predictor surrogate and a dynamic re-combination stage; and AlphaSAGE~\cite{chen2025alphasage} encodes expressions as typed graphs and trains a GFlowNet against a dense, multi-faceted reward. As \cref{ch:alphaqd} details, every method in this family routes pool information through the reward, inheriting the non-stationarity and absent generalisation guarantee that AlphaQD removes.
+
+\subsection{Uncertainty and Non-Stationary Reinforcement Learning}
+\label{sec:bg_uncertainty}
+
+The leverage setting of \cref{ch:fineft} foregrounds two kinds of uncertainty. \emph{Aleatoric} uncertainty is the irreducible noise of the environment, which leverage amplifies; risk-aware quantile methods~\cite{bernhard2019addressing} target it directly. \emph{Epistemic} uncertainty is the model's ignorance about states it has not seen, and is the proper target of OOD detection. Modelling slowly drifting environments as a dynamic-parametric or hidden-parameter MDP~\cite{xie2020deep} provides the formal setting in which a short window can be treated as approximately stationary, an assumption FineFT exploits. Prior trading work largely overlooks epistemic uncertainty; FineFT makes competence-awareness explicit.
+
+%----------------------------------------------------------------------------------------
+\section{Open Challenges}
+\label{sec:bg_gaps}
+
+This survey exposes three gaps that the technical chapters close.
+
+\begin{itemize}
+\item \textbf{Gap I (high-frequency efficiency and adaptivity).} Existing RL methods for high-frequency trading train a single agent and are defeated by both the million-step horizon and the regime non-stationarity of the market. A method is needed that is data-efficient at second scale and adaptive across regimes. This motivates EarnHFT (\cref{ch:earnhft}).
+
+\item \textbf{Gap II (risk and competence-awareness under leverage).} Methods designed for low-leverage markets ignore the amplified stochasticity and the catastrophic downside of leverage, and lack any awareness of their own competence boundary, leaving them exposed during black-swan events. This motivates FineFT (\cref{ch:fineft}).
+
+\item \textbf{Gap III (reward stationarity and generalisation in alpha mining).} Pool-based RL alpha miners couple the reward to an evolving pool, training the policy against a moving target and offering no finite-sample generalisation guarantee. This motivates AlphaQD (\cref{ch:alphaqd}).
+\end{itemize}
+
+A thread common to all three gaps is the placement of the selector. EarnHFT learns it, FineFT derives it heuristically from generative uncertainty estimates, and AlphaQD removes it from the reward entirely---a progression that the remainder of the thesis develops.
