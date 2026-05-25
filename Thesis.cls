@@ -170,7 +170,7 @@
 % To remove backref of references (the page number associated with the references where it is cited), please remove "backref=page".
 \usepackage[pdfpagemode={UseOutlines},bookmarks=true,bookmarksopen=true,
    bookmarksopenlevel=1,bookmarksnumbered=true,hypertexnames=true,
-   colorlinks,linkcolor={blue},citecolor={blue},urlcolor={black},pdfauthor={Chen Wang},pdftitle={Kernel Learning for Visual Perception},
+   colorlinks,linkcolor={blue},citecolor={blue},urlcolor={black},pdfauthor={Molei Qin},pdftitle={Reinforcement Learning for Quantitative Trading: From High-Frequency Execution to Formulaic Alpha Mining},
    pdfstartview={FitV},unicode,breaklinks=true,plainpages=false,backref=page]{hyperref}
 
 \pdfstringdefDisableCommands{
@@ -205,7 +205,7 @@
 %-------------------------------------------------
 \thesistitle{Reinforcement Learning for Quantitative Trading: From High-Frequency Execution to Formulaic Alpha Mining} %
 %-------------------------------------------------
-\supervisor{Assoc.\ Prof.\ \textsc{[Supervisor Name]}} % You supervisor's name - this is used in the title page
+\supervisor{Prof.\ \textsc{Bo An}} % You supervisor's name - this is used in the title page
 %-------------------------------------------------
 \examiner{} % Your examiner's name - this is not currently used anywhere in the template, cite it with \examname if you want it
 %-------------------------------------------------
