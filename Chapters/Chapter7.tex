@@ -1,0 +1,59 @@
+%!TEX root=../mythesis.tex
+% Chapter 6 -- Conclusion
+
+\chapter{Conclusion and Future Work} % Main chapter title
+\chaptermark{Conclusion and Future Work}
+\label{ch:conclusion}
+
+This thesis asked what reinforcement learning can do for quantitative trading, where it fails when moved from one trading task to another, and how those failures can be repaired. It answered the question through three studies that span the trading-frequency spectrum and progress from trade execution to signal generation. This final chapter summarises the contributions, revisits the perspective that unites them, states their limitations honestly, and sketches the work they invite.
+
+%----------------------------------------------------------------------------------------
+\section{Summary of Contributions}
+\label{sec:concl_summary}
+
+\paragraph{EarnHFT (\cref{ch:earnhft}).} For second-level high-frequency trading, the decisive obstacles are the extreme decision horizon and regime non-stationarity. EarnHFT addressed the first with an optimal action-value teacher computed by dynamic programming over future prices---legitimate because, at high frequency, a single trader does not move prices---which accelerates and provably preserves the convergence of second-level training. It addressed the second by training a pool of trend specialists and a minute-level router that switches among them. EarnHFT exceeded the strongest of six baselines by at least 30\% in profitability across four markets, and ablations confirmed that the value supervisor is the more potent half of the teacher.
+
+\paragraph{FineFT (\cref{ch:fineft}).} For leveraged futures, leverage amplifies the aleatoric noise of the reward and makes the absence of competence-awareness fatal. FineFT trained diverse specialists efficiently through a selective-update rule driven by an ensemble temporal-difference matrix---which, as a by-product, segmented the market automatically---and equipped each specialist with a variational autoencoder that captures its capability boundary, routing to a conservative fallback when the market state is out of distribution. It was, to our knowledge, the first to use VAEs for out-of-distribution detection in RL for quantitative trading. FineFT reduced risk by more than 40\% relative to the runner-up among twelve baselines while remaining the most profitable learned method.
+
+\paragraph{AlphaQD (\cref{ch:alphaqd}).} For formulaic alpha mining, the binding obstacle is reward design: pool-based RL miners couple the reward to an evolving pool, training the policy against a moving target and offering no generalisation guarantee. AlphaQD diagnosed this coupling and removed it, training a graph-based GFlowNet against an archive-independent reward and relocating diversity into a MAP-Elites archive keyed on the normalised daily IC series, a novel return-source behaviour descriptor. The resulting selection rule admits a finite-sample ensemble bound whose complexity scales with the number of occupied cells rather than the formula space. On A-share and U.S.\ benchmarks AlphaQD lay in the leading signal cluster on both markets with the lowest seed variance and turnover among learned pool-style methods.
+
+%----------------------------------------------------------------------------------------
+\section{The Unifying Perspective Revisited}
+\label{sec:concl_perspective}
+
+Across three tasks that differ in frequency, instrument, action space, and even in whether the agent acts or generates, the same response to market non-stationarity recurred: \emph{decompose} the non-stationary market into approximately stationary sub-problems, \emph{specialise} a learner to each, and \emph{select} among the specialists at deployment. The decomposition criterion changed with the task---market trend in EarnHFT, latent dynamic in FineFT, return-source behaviour in AlphaQD---but the skeleton did not. This recurrence is not a coincidence: decomposition is the most direct way to recover, locally, the stationary-MDP assumption on which reinforcement learning depends.
+
+The more pointed lesson concerns the selector. The component that decides which specialist acts is also the component most easily mis-designed, because the natural impulse is to learn it jointly with the specialists or to fold the selection criterion into the learning reward---and either coupling re-introduces, through the back door, the non-stationarity the decomposition was meant to dissolve. The three studies trace a deliberate retreat from this coupling. EarnHFT learns its router by reinforcement learning against the trading reward---the most coupled design---so that selection is itself a reward-maximising policy, fitted offline to a finite span of history and inheriting the same non-stationarity as the specialists it arbitrates. FineFT replaces the learned router with a heuristic one driven by generative out-of-distribution estimates, so selection no longer requires policy learning. AlphaQD removes the selector from the learning reward altogether: the generator's reward never reads the archive, and the archive never edits the reward. The payoff of this final decoupling is concrete---reward stationarity and a finite-sample generalisation bound---and it is the single most transferable conclusion of the thesis: \emph{in a decompose--specialise--select design for a non-stationary environment, the selector should be kept out of the learning target}.
+
+A second thread is methodological reuse across the chapters, which lends the thesis coherence beyond the shared skeleton. The dynamic-programming optimal action value introduced in EarnHFT reappears, with a liquidation mask, as the demonstrator and supervisor that pre-trains FineFT's ensemble. The slope-based market segmentation of EarnHFT is reused to define FineFT's dynamics. And the very limitation of EarnHFT's and FineFT's pool-and-route designs---that routing or selection, when coupled to learning, destabilises it---is what motivates AlphaQD's complete decoupling. The three studies are thus not three disconnected applications but successive iterations on one idea.
+
+%----------------------------------------------------------------------------------------
+\section{Limitations}
+\label{sec:concl_limitations}
+
+Each study rests on assumptions that bound its claims.
+
+\paragraph{EarnHFT.} The optimal action-value teacher is exact only because, at high frequency, prices are assumed independent of the agent's orders; the construction would not hold for an agent large enough to move the market. EarnHFT is also a deliberately aggressive trader: its teacher conveys profit-oriented experience and little about risk, so it trails on some risk metrics. Both the teacher and the segmentation depend on hindsight price information available only on historical data.
+
+\paragraph{FineFT.} The dynamic-parametric MDP assumption---that dynamics evolve slowly enough that a short window is approximately stationary---can be violated by a hard regime break, which would invalidate the PCA and VAE descriptors until their buffers rotate. The conservative fallback is a heuristic stop rather than a learned policy, and the risk threshold must be tuned on validation data.
+
+\paragraph{AlphaQD.} Invalid or numerically unstable formulas are absorbed by the reward floor rather than by a learned invalid-expression penalty, which suffices for the markets studied but is not a structural fix. The PCA descriptor is refitted on a rolling buffer, and a hard regime break that depopulates the warm-up modes would invalidate the cell partition until the buffer rotates. The generalisation results are stated under explicit assumptions (sign-symmetric warm-up shapes, positive ridge weights on retained orbit pairs) and are not claims of global optimality.
+
+\paragraph{Common scope.} All three studies evaluate primarily on cryptocurrency and equity data and within high-fidelity simulators; live deployment introduces latency, partial fills, and market impact that the simulators approximate but do not reproduce exactly.
+
+%----------------------------------------------------------------------------------------
+\section{Future Work}
+\label{sec:concl_future}
+
+\paragraph{Reflecting decoupling back onto execution.} The clearest direction is to carry AlphaQD's lesson back to the execution tasks. EarnHFT's learned router and FineFT's heuristic router could be replaced by a structural, archive-style selector whose construction never enters the specialists' reward, testing whether the reward-stationarity and generalisation benefits observed in alpha mining transfer to execution.
+
+\paragraph{A unified cross-frequency framework.} The three studies share a skeleton but not an implementation. A single framework that instantiates decompose--specialise--select with task-appropriate decomposition criteria, specialist learners, and decoupled selectors across the whole frequency spectrum would turn the thesis's perspective into a reusable system.
+
+\paragraph{Richer descriptors and generators.} AlphaQD's behaviour descriptor could be augmented with additional economically meaningful axes, such as factor-style exposure, and its GFlowNet generator could be replaced by a language-model symbolic policy while preserving the archive-independent reward, keeping the archive as the mechanism that organises diversity rather than a moving component of the reward.
+
+\paragraph{Risk and uncertainty as first-class objectives.} FineFT separated aleatoric from epistemic uncertainty and handled each with a dedicated mechanism. Treating both as first-class objectives throughout---distributional value learning for the former and generative competence estimation for the latter, jointly optimised rather than bolted on---is a natural unification of the risk machinery developed in this thesis.
+
+\paragraph{Toward deployment.} Finally, closing the gap to live trading---modelling latency and market impact, and validating the decoupled-selector designs under realistic execution---is the necessary step from the methods of this thesis to systems that operate in markets rather than simulators.
+
+\bigskip
+\noindent Reinforcement learning is a natural language for quantitative trading, but only once the non-stationarity, risk, and reward-design pathologies of financial markets are confronted directly. This thesis confronted them for three concrete tasks, and found in the confrontation a single, transferable principle: decompose the market, specialise to its parts, and select among them with a mechanism kept deliberately apart from what the specialists learn.

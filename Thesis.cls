@@ -211,7 +211,7 @@
 %-------------------------------------------------
 \degree{Doctor of Philosophy} % Your degree name - this is currently used in the title page and abstract
 %-------------------------------------------------
-\authors{Molei Qin} % Your name - this is used in the title page and abstract
+\authors{Qin Molei} % Your name - this is used in the title page and abstract
 %-------------------------------------------------
 \addresses{} % Your address - this is not currently used anywhere in the template, cite it with \addressnames if you want it
 %-------------------------------------------------
@@ -275,7 +275,8 @@
   \vfill
   \href{http://www.ntu.edu.sg}{\includegraphics[width=230pt]{Styles/ntu_logo}}\\%[2cm]
   \vfill
-  \textbf{\Large \authornames}\\%[1.2cm]
+  \textbf{\Large \authornames}\\[0.3cm]%
+  {\large Matriculation Number: G2304936H}\\[0.3cm]%
   {\large \deptname}\\%[1.2cm] % University name
   \vfill
   \setstretch{1.2}

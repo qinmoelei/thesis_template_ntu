@@ -1,266 +1,347 @@
 %!TEX root=../mythesis.tex
-% Chapter 5 -- AlphaQD
+% Chapter 4 -- FineFT
 
-\chapter{AlphaQD: Quality-Diversity Reinforcement Learning for Formulaic Alpha Mining} % Main chapter title
-\chaptermark{AlphaQD for Alpha Mining}
-\label{ch:alphaqd}
+\chapter{FineFT: Risk-Aware Ensemble Reinforcement Learning for Futures Trading} % Main chapter title
+\chaptermark{FineFT for Futures Trading}
+\label{ch:fineft}
 
 %----------------------------------------------------------------------------------------
 \section{Introduction}
-\label{sec:alphaqd_intro}
+\label{sec:fineft_intro}
 
-The two preceding chapters made trading \emph{decisions}: an agent observed the market and chose how to adjust its position. This chapter changes the task. Rather than acting in the market, the agent must \emph{generate} the predictive signals from which a portfolio is later built. The signals are \emph{formulaic alphas}: short symbolic expressions---trees of arithmetic, cross-sectional, and time-series operators over a small vocabulary of price and volume features---whose cross-sectional value at each timestamp is treated as a forecast of future returns~\cite{kakushadze2016101}. A portfolio is assembled from a \emph{set} of such alphas.
+Futures are standardised contracts obligating the exchange of an asset at a predetermined date and price. They account for the majority of cryptocurrency trading volume~\cite{aleti2021bitcoin} because they permit both long and short positions and offer high leverage, attracting risk-seeking traders and creating a deeply liquid market with capacity in the tens of trillions of dollars. Futures trading is therefore a crucial domain for quantitative methods, and the natural next task after the spot high-frequency trading of \cref{ch:earnhft}.
 
-Formulaic alphas remain the dominant signal-generation paradigm in low-frequency quantitative investment for two reasons that monolithic neural predictors do not satisfy: each formula is readable and auditable to risk committees and regulators, and a small set of complementary formulas degrades more gracefully than a single black box when the regime shifts. Automating their discovery, however, is a hard exploration problem under three simultaneous pressures: \emph{quality} (the supervisory signal is the information coefficient of a finished formula on noisy data, with a low signal-to-noise ratio relative to the legal expression space); \emph{diversity} (what is deployed is a set covering different return sources, so a high-quality duplicate is worthless); and \emph{generalisation} (the training window is bounded and the test market non-stationary).
+Reinforcement learning has succeeded across many trading tasks~\cite{qin2024earnhft,zong2024macrohft}, but those methods target low-leverage markets such as spot or stock and do not transfer to leveraged futures, for two reasons that constitute Gap~II of \sref{sec:bg_gaps} and are illustrated in \fref{fig:fineft_motivation}.
 
-\paragraph{Diagnosis.} The reinforcement-learning line descended from AlphaGen~\cite{yu2023alphagen} scores each new alpha by its marginal contribution to a running pool. This is structurally a boosting objective, and it has two pathologies, the third gap of \sref{sec:bg_gaps}. First, the reward changes every time the pool changes, so the policy is trained against a moving target---a severe problem for exploration, where the policy never sees a stable landscape long enough to commit to coverage. Second, residual-driven boosting carries no a-priori bound on the generalisation of the resulting ensemble: with a legal expression space exceeding $10^{20}$, the late-round residual maximiser is dominated by the search-space noise floor, and the retained set inherits no concentration guarantee tied to its size. \fref{fig:alphaqd_reward_drift} contrasts the pool-dependent AlphaGen reward with the static reward AlphaQD uses.
+\begin{itemize}
+\item \textbf{Leverage amplifies the stochasticity of the reward.} High leverage magnifies the inherent noise of financial markets~\cite{sun2023mastering}: even in nearly identical states, identical actions can lead to vastly different rewards and next states. This aleatoric uncertainty, visible in \fref{fig:fineft_motivation}(a) as wide variation in future return for almost identical market-state values, undermines the convergence and stability of RL and reduces data efficiency.
+\item \textbf{Agents are unaware of their capability boundary.} Because RL overfits the training set, a policy becomes unreliable on market states unseen during training, exposing it to severe capital loss~\cite{lan2022generalization}. A black-swan event---such as the late-2022 shift triggered by aggressive interest-rate hikes, visible in \fref{fig:fineft_motivation}(b) as an abrupt jump of a state cluster---can liquidate an agent that lacks self-awareness of its competence. This is an \emph{epistemic} uncertainty that low-leverage methods can afford to ignore but leveraged ones cannot.
+\end{itemize}
 
 \begin{figure}[!htb]
 \centering
-\includegraphics[width=0.8\textwidth]{Chapter5/alphaqd_reward_drift}
-\caption[Reward drift under two reward functions.]{Per-candidate reward across pool-insertion steps under two reward functions: the AlphaGen-style pool-dependent reward (left) and the AlphaQD terminal reward (right). Rows are twelve probe alphas; columns are pool-insertion steps; colour encodes the reward (separate scale per panel). The AlphaGen reward shifts as the pool grows; the AlphaQD reward does not.}
-\label{fig:alphaqd_reward_drift}
+\includegraphics[width=\textwidth]{Chapter5/fineft_motivation}
+\caption[Two challenges of RL in futures trading.]{The two challenges RL faces in futures trading. The horizontal axis is time; the vertical axis is a one-dimensional t-SNE~\cite{van2008visualizing} embedding of the market state $y_t$; colour encodes the future five-minute return. \emph{(a)} Aleatoric uncertainty: nearly identical state values yield widely varying future returns. \emph{(b)} Distribution shift: a state cluster abruptly relocates during a macro event.}
+\label{fig:fineft_motivation}
 \end{figure}
 
-\paragraph{Remedy.} AlphaQD removes the coupling structurally, in three stages (\fref{fig:alphaqd_pipeline}), following the decompose--specialise--select pattern with the selector fully detached from the reward.
+This chapter presents FineFT, an e\textbf{F}ficient and r\textbf{I}sk-aware e\textbf{N}semble r\textbf{E}inforcement learning method for \textbf{F}utures \textbf{T}rading, with three stages summarised in \fref{fig:fineft_pipeline}. It follows the same decompose--specialise--select pattern as EarnHFT, but the selector is now risk-aware and the agent is made competence-aware.
+
 \begin{enumerate}
-\item \textbf{Efficient GFlowNet exploration.} A relational-graph GFlowNet samples symbolic expressions and is trained by trajectory balance against a terminal reward that depends \emph{only} on the candidate's training-window information ratio, so the learning target is invariant to later archive updates.
-\item \textbf{Return-source MAP-Elites archiving.} Each candidate is back-tested into a daily IC series; its information ratio scores quality, and the normalised IC series is its behaviour descriptor---an empirical proxy for the formula's return source---placing it in a PCA-discretised MAP-Elites grid.
-\item \textbf{Top-$k$ cell selection.} One high-quality representative per occupied cell is exported, and the top $K$ cells form the deployed pool.
+\item \textbf{Stage~I (selective-update ensemble).} We initialise $N$ deep Q-networks, pre-train them on demonstrations, and then update them \emph{selectively}: for each transition we update only the learner with the smallest temporal-difference error and its neighbours. This trains diverse specialists efficiently and segments the market automatically.
+\item \textbf{Stage~II (filter and boundary).} We filter the ensemble by profitability under each market dynamic to shrink the pool, and train a variational autoencoder per dynamic to capture each specialist's capability boundary and detect out-of-distribution states.
+\item \textbf{Stage~III (risk-aware routing).} Guided by VAE losses on recent states, we route to the best in-distribution specialist for profit, and fall back to a conservative policy on out-of-distribution states to control risk.
 \end{enumerate}
-On full-market Chinese A-share and U.S.\ benchmarks against eleven baselines, AlphaQD lies in the leading signal-quality cluster on both markets, attains the highest annualised return and the strongest net Sharpe among learned formula-mining methods on A-shares, and shows the smallest seed-to-seed variance and the lowest turnover among learned pool-style methods on both markets.
+
+On crypto futures with $5\times$ leverage, FineFT outperforms twelve state-of-the-art baselines on six metrics, reducing risk by more than 40\% relative to the runner-up while remaining the most profitable learned method.
 
 \begin{figure}[!htb]
 \centering
-\includegraphics[width=\textwidth]{Chapter5/alphaqd_pipeline}
-\caption[The AlphaQD pipeline.]{The three stages of AlphaQD. \emph{Left:} a relational-graph GFlowNet samples a legal symbolic expression from raw inputs and is trained by trajectory balance. \emph{Middle:} the candidate is back-tested into a daily IC series; the information ratio scores quality, the normalised IC series is the return-source descriptor, and the candidate enters a PCA-discretised MAP-Elites grid; the quality score is propagated back to the generator. \emph{Right:} the top $K$ occupied cells export their representatives as the deployed pool, evaluated by a shared ridge back-test.}
-\label{fig:alphaqd_pipeline}
+\includegraphics[width=\textwidth]{Chapter5/fineft_pipeline}
+\caption[The FineFT framework.]{Overview of the three stages of FineFT. Stage~I computes ensemble TD errors for selective updates. Stage~II filters the ensemble by performance across dynamics and trains a VAE per dynamic to identify capability boundaries. Stage~III routes among the ensemble and a conservative policy for stable performance and risk reduction.}
+\label{fig:fineft_pipeline}
 \end{figure}
 
 %----------------------------------------------------------------------------------------
 \section{Problem Formulation}
-\label{sec:alphaqd_formulation}
+\label{sec:fineft_formulation}
 
-Let $T$ be the number of trading days in the training window, $N$ the cross-sectional universe size, and $X\in\mathbb{R}^{T\times N\times d}$ the per-asset feature tensor (open, high, low, close, volume, VWAP, and short-window returns). A formulaic alpha is a function $\alpha:\mathbb{R}^{T\times N\times d}\to\mathbb{R}^{T\times N}$ realised as a reverse-Polish-notation (RPN) token sequence over a typed grammar $\mathcal{G}$, with an action mask rejecting any prefix that cannot complete into a legal formula. Given the $h$-day forward return $r^{(h)}_{t,i}=\mathrm{close}_{t+h,i}/\mathrm{close}_{t,i}-1$ (we use $h=20$), the daily information coefficient and information ratio are
+Beyond the concepts of \sref{sec:bg_instruments}, futures trading introduces \emph{leverage} $L_t$, the ratio of position value to required margin; the \emph{mark price} $M_t$; a \emph{market order loss} $O_t$ that captures slippage and commission; a \emph{funding fee} $F_{ft}=F_{rt}H_t$ paid to hold a leveraged position; and the \emph{margin balance} $V_t$, the sum of cash and position value net of realised costs. The objective is to maximise the margin balance via leveraged market orders on a single asset at minute scale.
+
+\subsection{A Dynamic Parametric MDP}
+\label{sec:fineft_dpmdp}
+
+To make the non-stationarity explicit, we model futures trading as a dynamic parametric MDP (DP-MDP)~\cite{xie2020deep}, the tuple $(\mathcal{S},\mathcal{A},P,r,\gamma,T,Z,P_z)$ that augments the MDP of \sref{sec:bg_mdp} with a \emph{dynamic} space $Z$ and its transition $P_z$. The dynamic $z$ governs the transition $P:\mathcal{S}\times Z\times\mathcal{A}\times\mathcal{S}\to[0,1]$ but is not revealed to the agent, and it evolves much more slowly than the state. Crucially, this means that \emph{over a short horizon the experienced transitions behave as those of a stationary MDP}---the assumption that legitimises training a specialist per dynamic.
+
+The goal is to learn a set of specialist policies $\Pi_A=(\pi_{\theta_1},\dots,\pi_{\theta_m})$ and a router $\pi_{\theta_r}:\mathcal{S}\to Z$ that compose an optimal strategy $\pi^\star=\argmax_{A,\theta_r}\mathbb{E}_{\Pi_A,\pi_{\theta_r}}[\sum_{t=0}^T\gamma^t r_t]$. The state $S_t$ consists of around 300 technical indicators $y_t$ and the position $H_t$; the reward is the margin-balance change
 \begin{equation}
-\label{eq:alphaqd_ic}
-\mathrm{IC}_t(\alpha) = \corr(\alpha_t, r^{(h)}_t),
-\qquad
-\mathrm{ICIR}(\alpha) = \overline{\mathrm{IC}(\alpha)}\,\big/\,\hat\sigma(\mathrm{IC}(\alpha)).
+\label{eq:fineft_reward}
+r_t = V_{t+1}-V_t = H_t(M_{t+1}-M_t)-O_t,
 \end{equation}
-
-\paragraph{Mining goal.} Let $\mathcal{A}$ be the set of legal formulas. The output is a bounded set $\mathcal{P}\subset\mathcal{A}$ maximising the predictive power of a downstream combination of its members on held-out data. The goal is therefore not the per-formula maximiser $\argmax_{\alpha\in\mathcal{A}}\mathrm{ICIR}(\alpha)$, which a single high-ICIR formula would solve, but the joint problem
-\begin{equation}
-\label{eq:alphaqd_goal}
-\argmax_{\mathcal{P}\subset\mathcal{A}}\;\mathbb{E}_{\mathrm{test}}\!\left[\mathrm{IC}(c(\mathcal{P}))\right]
-\quad\text{subject to}\quad |\mathcal{P}|\le K,
-\end{equation}
-where $c(\cdot)$ is a fixed downstream combiner. This imposes two structural requirements: each retained alpha must be of high quality, and members must capture different \emph{return sources} so their combination generalises. We use the centred, unit-normalised daily IC series as the empirical proxy for the return source carried by $\alpha$.
-
-\paragraph{Contrast with AlphaGen.} AlphaGen approximates \eqref{eq:alphaqd_goal} by a boosting relaxation. A pool $\mathrm{Pool}_t$ is grown one element at a time, with the per-step terminal reward the correlation-penalised marginal contribution
-\begin{equation}
-\label{eq:alphaqd_alphagen}
-R_t(\alpha) = \mathrm{ICIR}(\alpha) - \lambda\max_{\alpha_j\in\mathrm{Pool}_t}\bigl|\corr(\mathrm{IC}(\alpha),\mathrm{IC}(\alpha_j))\bigr|.
-\end{equation}
-Every pool update changes $R_t(\cdot)$, so the policy is trained against a moving target.
-
-\paragraph{Static formulation.} We retain the per-formula MDP $(\mathcal{S},\mathcal{A},P,R,\gamma=1)$, in which $s_t$ is a partial RPN prefix and $a_t$ the next token under the legal-action mask, but we replace \eqref{eq:alphaqd_alphagen} with a terminal reward that depends only on the candidate and the fixed training window. Diversity is moved out of the reward and into a separate selection rule over a behaviour descriptor of $\alpha$. The reward function then does not change as the archive grows, restoring stationarity; and the selection rule operates over a bounded number of behaviour cells, yielding a generalisation-complexity term that scales with the size of the retained set rather than with $|\mathcal{A}|$ (\sref{sec:alphaqd_theory}).
+combining valuation change and order loss; and the action is a target (position, leverage) pair drawn from a finite pool, executed instantly by a market order.
 
 %----------------------------------------------------------------------------------------
 \section{Method}
-\label{sec:alphaqd_method}
+\label{sec:fineft_method}
 
-The three stages exchange candidates and scalar scores but never a pool-dependent reshape of the reward. Algorithm~\ref{alg:alphaqd} ties them together.
+\subsection{Stage I: Efficient Ensemble with Selective Update}
+\label{sec:fineft_stage1}
 
-\subsection{Efficient GFlowNet Exploration}
-\label{sec:alphaqd_generator}
+A mixture of experts performs well on trading tasks but is expensive to construct, because every specialist is trained independently~\cite{qin2024earnhft,sun2023mastering}. FineFT instead trains the ensemble jointly: all learners share a pre-training phase that installs common knowledge, after which each transition updates only the best-fitting learner and its neighbours. The aim is an ensemble in which each learner masters one dynamic $z$ of the DP-MDP.
 
-\paragraph{Search surface.} A state $s_t$ is the partial RPN prefix and an action $a_t$ the next token; a legal-action mask, derived from stack depth, type consistency, window-parameter constraints, and a terminator rule, confines the search to syntactically and dimensionally valid expressions. Each prefix is materialised as a typed directed graph---nodes tagged by operator, operand, constant, and window type, edges encoding operator-to-argument relations---and encoded by a two-layer relational graph convolutional network~\cite{schlichtkrull2018rgcn} of hidden width $128$. The pooled node embeddings feed two heads, $\log P_F(\cdot\mid s_t)$ over legal next tokens and $\log P_B(\cdot\mid s_{t+1})$ over legal predecessors, and a scalar $\log Z$.
+Each of the $N$ learners is a multilayer perceptron with identical architecture but a distinct random seed, assigned an index $1,\dots,N$.
 
-\paragraph{Terminal reward.} For a completed expression $\alpha$, AlphaQD evaluates its factor values on the training window, cross-sectionally winsorises and rank-normalises by date, computes $\mathrm{IC}(\alpha)$ and $\mathrm{ICIR}(\alpha)$ via \eqref{eq:alphaqd_ic}, and sets
+\paragraph{Pre-training with demonstrations.} As new traders are trained together before specialising, we first train all learners on the same demonstration transitions. Following the principle of \cref{ch:earnhft}, we build a \emph{constrained} optimal action value (Algorithm~\ref{alg:fineft_coav}) by adding a liquidation mask to the dynamic-programming construction, and use it both as an optimal actor (to generate demonstrations) and an optimal value supervisor. Three auxiliary policies---emptying, maximally long, maximally short---add diverse transitions. Each learner is updated with a Huber TD error~\cite{huber1992robust}, robust to the outliers leverage produces, plus the KL supervision:
 \begin{equation}
-\label{eq:alphaqd_reward}
-R(\alpha) = \max\!\bigl\{\exp(\beta_q\,\mathrm{ICIR}(\alpha)),\,\exp(-10)\bigr\},
+\label{eq:fineft_pretrain}
+L(\theta_i) = L_{td_i} + \alpha\,\mathrm{KL}\!\left(Q(s,\cdot;\theta_i)\,\|\,Q^\star(s,\cdot)\right),
+\quad
+L_{td_i} = \mathcal{H}\!\left(r + \gamma\max Q(s,\cdot;\theta_i') - Q(s,a;\theta_i)\right),
 \end{equation}
-with quality temperature $\beta_q$ and an exponential floor for unevaluable candidates. Equation~\eqref{eq:alphaqd_reward} reads neither the archive nor any pool statistic---not coverage, novelty, cell identity, incumbent quality, or acceptance status---so for a fixed training window and fixed $\beta_q$ the reward of a candidate is invariant to later archive updates.
-
-\paragraph{Trajectory-balance training.} The generator is trained by trajectory balance~\cite{malkin2022trajectorybalance,bengio2021gflownet}: for a terminal trajectory $\tau$ with formula $\alpha(\tau)$,
-\begin{equation}
-\label{eq:alphaqd_tb}
-\mathcal{L}_{\mathrm{TB}}(\tau) = \left(\log Z + \sum_{t=0}^{T-1}\log P_F(a_t\mid s_t) - \sum_{t=0}^{T-1}\log P_B(s_t\mid s_{t+1}) - \log R(\alpha(\tau))\right)^2.
-\end{equation}
-At the optimum, the probability of sampling a terminal expression under $P_F$ is proportional to $R(\alpha)$, so the policy assigns mass to every high-reward mode rather than collapsing onto the single maximiser; under a fixed budget, this mode-covering sampling is the ``efficient'' part of the stage~\cite{bengio2021gflownet}. Failed evaluations receive the floor reward and still contribute a finite gradient, so the policy learns to avoid them without a separate invalid-expression branch.
-
-\subsection{Return-Source MAP-Elites Archiving}
-\label{sec:alphaqd_archive}
-
-\paragraph{Quality and behaviour descriptor.} The IC series $\mathrm{IC}(\alpha)\in\mathbb{R}^T$ supplies both the quality score $\mathrm{ICIR}(\alpha)$ and a behaviour descriptor that summarises \emph{when} the signal is strong. AlphaQD centres and unit-normalises the IC series,
-\begin{equation}
-\label{eq:alphaqd_shape}
-\mathbf{r}(\alpha) = \frac{\mathbf{x}(\alpha)-\overline{\mathbf{x}(\alpha)}\mathbf{1}}{\|\mathbf{x}(\alpha)-\overline{\mathbf{x}(\alpha)}\mathbf{1}\|_2+\varepsilon},
-\qquad \mathbf{x}(\alpha)=\mathrm{IC}(\alpha),
-\end{equation}
-removing level and scale (absorbed into ICIR) and keeping only the relative temporal pattern. By construction $\mathbf{r}(\alpha)$ is invariant to any positive affine transform of the IC series, so it isolates which dates the formula explains, not how strong its edge is; we treat it as the empirical proxy for the formula's return source. The shape is projected by an incremental PCA basis $W$ (canonical dimension $d_b=2$) to $\mathbf{z}(\alpha)=W^\top\mathbf{r}(\alpha)$, then discretised by per-axis quantile bin edges into a $B\times B$ grid ($B=10$, so $100$ cells), giving the cell index $c(\alpha)$.
-
-\paragraph{Per-cell ranking and update.} Within each cell, elites are ranked by two terms: predictive quality (the ICIR) and a \emph{perturbation fidelity score} (PFS) that jitters each integer window parameter by $\pm 10\%$ over five perturbations and measures the normalised agreement between the perturbed and unperturbed IC series, capturing whether quality survives small parameter changes. A candidate with non-positive ICIR is not offered for insertion. Otherwise, if its cell holds fewer than $\kappa$ elites (canonical $\kappa=3$) it enters directly; if the cell is full it enters only if it Pareto-dominates an existing elite in the $(\mathrm{ICIR},\mathrm{PFS})$ plane or strictly improves the cell's combined score, evicting one elite to maintain the cap. The bounded quota prevents dense regions from absorbing the archive, and the Pareto front retains both the strongest and the most robust formulas per return source.
-
-\subsection{Top-$k$ Cell Selection}
-\label{sec:alphaqd_export}
-
-For each occupied cell, the representative is the elite with the highest training-window ICIR (ties broken by PFS), which keeps representatives comparable across cells. Let $K^\star=\min(10,\max(5\kappa,5))$ ($K^\star=10$ under $\kappa=3$, matching the pool-style baselines). AlphaQD ranks occupied cells by representative ICIR and exports the top $K^\star$ as the pool $\mathcal{P}^\star$, which is fed to a shared ridge combiner~\cite{hoerl1970ridge} fitted on the training window. Because the per-cell representative inherits the positive-ICIR admission rule and the cells partition formulas by behaviour, the exported pool satisfies the structural premises (positive standalone edges, bounded pairwise correlation) under which the ensemble bound of \sref{sec:alphaqd_theory} applies.
+where $\mathcal{H}$ is the Huber loss, quadratic for small errors and linear for large ones. The total pre-training loss sums \eqref{eq:fineft_pretrain} over all learners.
 
 \begin{algorithm}[!htb]
-\caption{AlphaQD: three-stage training and export}
-\label{alg:alphaqd}
+\caption{Constrained Optimal Action Value}
+\label{alg:fineft_coav}
 \begin{algorithmic}[1]
-\State Initialise the RGCN encoder, $\log P_F$, $\log P_B$, $\log Z$, an empty MAP-Elites archive, and an empty PCA buffer.
-\For{episode $= 1,\dots,E$}
-  \State \textbf{Stage 1:} sample a batch of terminal trajectories under $P_F$ and the legal-action mask.
-  \For{each terminal trajectory $\tau$ with formula $\alpha$}
-    \State Evaluate $\alpha$ on the training window; compute $\mathrm{IC}(\alpha)$, $\mathrm{ICIR}(\alpha)$, and $R(\alpha)$ via \eqref{eq:alphaqd_reward}.
-    \State \textbf{Stage 2:} update the PCA buffer with $\mathbf{r}(\alpha)$ from \eqref{eq:alphaqd_shape}; refit $W$.
-    \If{$\mathrm{ICIR}(\alpha) > 0$}
-      \State Compute PFS via $\pm 10\%$ window-parameter perturbations.
-      \State Insert $\alpha$ into cell $c(\alpha)=\mathrm{discretize}(W^\top\mathbf{r}(\alpha))$ under the cell update rule.
+\State \textbf{Input:} LOB series $B$, mark-price series $M$ of length $N$, action space $A$, mask penalty $P$, capital $C$
+\State \textbf{Output:} table $Q^\star$ of optimal action values
+\State Initialise $Q^\star$ with shape $(N,|A|,|A|)$ and all elements $0$.
+\For{$t \gets N-1$ \textbf{to} $1$}
+  \For{$p,a \gets 1$ \textbf{to} $|A|$}
+    \State $Q^\star[t,p,a] \gets \max_{a'} Q^\star[t+1,a,a'] + r_t$ \Comment{$r_t$ via \eqref{eq:fineft_reward}}
+    \If{$V_t \le C$}
+      \State $Q^\star[t,p,a] \gets Q^\star[t,p,a] - P$ \Comment{liquidation mask}
     \EndIf
-    \State Accumulate $\mathcal{L}_{\mathrm{TB}}(\tau)$ from \eqref{eq:alphaqd_tb}.
   \EndFor
-  \State Update $\{\log P_F,\log P_B,\log Z\}$ on the accumulated loss.
 \EndFor
-\State \textbf{Stage 3:} take the highest-ICIR elite per cell as its representative; rank cells by representative ICIR; export the top $K^\star$ as $\mathcal{P}^\star$ and fit the shared ridge combiner.
+\State \textbf{return} $Q^\star$
+\end{algorithmic}
+\end{algorithm}
+
+\paragraph{Selective update with neighbours.} Although dynamics share basic principles, their most profitable strategies conflict, which is why diversity matters. Prior work obtains diversity by training learners independently with preference sampling~\cite{qin2024earnhft}, at high cost. FineFT instead shares transitions selectively. For each transition we assign larger weight to the learner with the most accurate Q-value---the smallest TD error---and to its index-neighbours, while leaving poorly fitting learners untouched, because their competence lies in a different dynamic that this transition would only corrupt. This creates a positive feedback loop: as a learner specialises in a dynamic, its TD error there falls, so future transitions from that dynamic are increasingly routed to it, reinforcing specialisation.
+
+Concretely, for each transition we form an ensemble TD-error matrix $L$ with entries
+\begin{equation}
+\label{eq:fineft_etd}
+L_{ij} = \mathcal{H}\!\left(r + \gamma\max Q(s',\cdot;\theta_j') - Q(s,a;\theta_i)\right),
+\end{equation}
+the cross-learner Huber TD error ($L_{ii}$ is learner $i$'s own error). Algorithm~\ref{alg:fineft_weight} converts $L$ into a weight matrix $\mathcal{W}$: it locates the best learner $i^\star=\argmin_i L_{ii}$, expands a neighbourhood of radius $m$, and assigns diagonal weights that decay with distance from $i^\star$ and off-diagonal weights that decay with index difference. The total selective-update loss for a transition is
+\begin{equation}
+\label{eq:fineft_final_loss}
+L = \sum_{i=1}^{N}\sum_{j=1}^{N}\mathcal{W}_{ij}L_{ij} + \mathbf{d}_{\mathcal{W}}\,O_{\mathrm{KL}}^{\top},
+\end{equation}
+where $\mathbf{d}_{\mathcal{W}}$ is the diagonal of $\mathcal{W}$ and $O_{\mathrm{KL}}$ collects the per-learner KL supervision. The cross-learner terms share experience among learners of similar dynamics while preventing experience poisoning across dissimilar ones. A convergence analysis is given in \aref{app:fineft_proof}.
+
+\begin{algorithm}[!htb]
+\caption{Construction of the Weight Matrix}
+\label{alg:fineft_weight}
+\begin{algorithmic}[1]
+\State \textbf{Input:} ensemble TD-error matrix $\mathcal{L}$, neighbour count $m$
+\State \textbf{Output:} weight matrix $\mathcal{W}$
+\State Initialise $\mathcal{W}$ with shape $(N,N)$ and all elements $0$.
+\State $i^\star \gets \argmin_i L_{ii}$; \; $i_{\min}\gets\max(i^\star-m,1)$; \; $i_{\max}\gets\min(i^\star+m,N)$
+\For{$i = i_{\min}$ \textbf{to} $i_{\max}$}
+  \State $\mathcal{W}_{ii} \gets 1 - \dfrac{|i-i^\star|}{i_{\max}-i_{\min}}$ \Comment{diagonal decay}
+\EndFor
+\For{$i,j \gets 1$ \textbf{to} $N$}
+  \If{$i \neq j$}
+    \State $\mathcal{W}_{ij} \gets \min(\mathcal{W}_{ii},\mathcal{W}_{jj})\left(1 - \dfrac{|i-j|}{i_{\max}-i_{\min}}\right)$ \Comment{off-diagonal decay}
+  \EndIf
+\EndFor
+\State \textbf{return} $\mathcal{W}$
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Stage II: Ensemble Filter and Boundary Identification}
+\label{sec:fineft_stage2}
+
+Knowing which dynamic each learner suits is necessary but not sufficient for safe routing; we must also know the boundary within which each learner is competent.
+
+\paragraph{Filtering by profitability.} We divide the market into dynamics by slope, following \cref{ch:earnhft}: the series is low-pass filtered, segmented at local extrema, and adjacent chunks with similar slope are merged until stable, yielding $m$ dynamics. We back-test each learner across initial positions and retain, for each dynamic, the learner with the highest average profitability, producing a small, diverse, profitable pool.
+
+\paragraph{Boundary identification with VAEs.} To capture each learner's capability boundary we train a variational autoencoder~\cite{kingma2013auto} on the market-state representations of each dynamic. A VAE encodes its input into a regularised latent distribution and decodes a reconstruction; because it gives a probabilistic measure of how well a new input matches the training distribution, it is a principled out-of-distribution detector. For $m$ dynamics we train $m$ VAEs, each on the states $Y_i$ of its dynamic, minimising
+\begin{equation}
+\label{eq:fineft_vae}
+L^i(y\in Y_i) = N_{LL}\!\left(\mu_d, \tfrac{1}{2}\log\sigma_d^2, y\right) + \mathrm{KLD}\!\left(\mu,\log\sigma^2\right),
+\end{equation}
+the reconstruction negative log-likelihood plus the normal-distribution regulariser. After training we record, for each VAE $M^{v_i}$, the negative loss on every state of its dynamic as reference scores $R^i$, used at deployment.
+
+\subsection{Stage III: Risk-Aware Heuristic Routing}
+\label{sec:fineft_stage3}
+
+\paragraph{Conservative policy.} For states never seen during training or validation we design a conservative policy: hold the position if the single-trade drawdown stays under 5\%, otherwise close it. This policy only closes, never opens, reducing position churn and ensuring losses are cut once a stop-loss triggers on unfamiliar states.
+
+\paragraph{Routing with VAE losses.} Training a high-level RL router is data-inefficient~\cite{qin2024earnhft,zong2024macrohft}, so we route heuristically. Given a window of recent states $Y^u_T=(y_{T-u},\dots,y_T)$, each state's score under dynamic $i$ is its empirical-CDF position among the reference scores $R^i$, smoothed by an exponential moving average:
+\begin{equation}
+\label{eq:fineft_ema}
+R^i_t = F_{R^i}\!\left(-L^i(y_t)\right),
+\quad
+Re^{iu}_{T_t} = \gamma\,Re^{iu}_{T_{t-1}} + R^{iu}_t,
+\quad
+Re^{iu}_T = Re^{iu}_{T_T}.
+\end{equation}
+We select the dynamic $i=\argmax_i Re^{iu}_T$ and compare its score with a risk threshold $\tau$: if it falls below $\tau$, the recent states are unfamiliar and we choose the conservative policy; otherwise we deploy the corresponding specialist (Algorithm~\ref{alg:fineft_routing}). This is the second instantiation of the thesis's selector---no longer a learned router, but a heuristic driven by generative uncertainty estimates, and hence partly decoupled from the policy learning.
+
+\begin{algorithm}[!htb]
+\caption{Risk-Aware Heuristic Routing}
+\label{alg:fineft_routing}
+\begin{algorithmic}[1]
+\State \textbf{Input:} specialists $\Pi=(\pi^1,\dots,\pi^m)$, VAEs $M^v$, reference scores $R$, state window $Y^u_T$, decay $\gamma$, threshold $\tau$
+\State \textbf{Output:} current strategy $\pi$
+\For{dynamic $i = 1$ \textbf{to} $m$}
+  \State Obtain state scores $R^i_t$ from $M^{v_i}$, $Y^u_T$, and $R^i$.
+  \State Compute the EMA score $Re^{iu}_T$ by \eqref{eq:fineft_ema}.
+\EndFor
+\State $i \gets \argmax_i Re^{iu}_T$
+\If{$Re^{iu}_T \le \tau$}
+  \State \textbf{return} conservative policy $\pi^c$ \Comment{out-of-distribution}
+\Else
+  \State \textbf{return} specialist $\pi^i$
+\EndIf
 \end{algorithmic}
 \end{algorithm}
 
 %----------------------------------------------------------------------------------------
-\section{Generalisation Properties}
-\label{sec:alphaqd_theory}
-
-The staging is not merely convenient; it is generalisation-favouring. This section states the central results; the full statements, assumptions, and proofs are collected in \aref{app:alphaqd_theory}. Two recurring assumptions are a sign-symmetric warm-up shape distribution (A1) and strictly positive ridge weights on retained orbit pairs (A2).
-
-The first result formalises why decoupling quality from the shape descriptor is sound.
-\begin{lemma}[Affine invariance of the shape descriptor]
-\label{lem:alphaqd_affine}
-For any candidate $\alpha$ and any positive affine transform $\mathbf{y}=a\,\mathbf{x}(\alpha)+b\mathbf{1}$ with $a>0$, the normalised shape vector built from $\mathbf{y}$ equals $\mathbf{r}(\alpha)$.
-\end{lemma}
-Thus the descriptor encodes only which dates were strong, with mean and scale absorbed into the quality score, so two alphas with the same temporal pattern but different overall edge occupy the same cell rather than leaking into different ones.
-
-The second result is the structural reason the static reward survives even archive-aware exploration.
-\begin{theorem}[Stationary conditional reward]
-\label{thm:alphaqd_stationary}
-Let the per-alpha reward be $R_q(\alpha)=\exp(\beta_q\,\mathrm{ICIR}(\alpha))$. For any fixed target orbit $\mathcal{O}^\star$ and any kernel $K$ independent of the archive state and training step, the conditional reward $R_{\mathcal{O}^\star}(\alpha)=R_q(\alpha)\,K(\mathcal{O}(c(\alpha)),\mathcal{O}^\star)$ is a stationary terminal reward. A scheduler that varies $\mathcal{O}^\star$ across episodes changes the distribution over conditions but never the reward function attached to any single condition.
-\end{theorem}
-
-The third result contrasts the search complexity of AlphaQD with boosting.
-\begin{theorem}[Search-complexity contrast]
-\label{thm:alphaqd_complexity}
-A $K$-step boosting procedure over a candidate set of size $M$ has hypothesis-class complexity scaling as $\mathcal{C}_{\mathrm{boost},K}=\sqrt{K\log M/n_{\mathrm{eff}}}$, while a quality-diversity rule that maps candidates to at most $G$ occupied cells and exports one representative per cell has complexity scaling as $\mathcal{C}_{\mathrm{QD},K}=\sqrt{K\log(G/K)/n_{\mathrm{eff}}}$. For $G\ll M$, $\mathcal{C}_{\mathrm{QD},K}\ll\mathcal{C}_{\mathrm{boost},K}$.
-\end{theorem}
-In the reported grid $G\le 100$ while $|\mathcal{A}|>10^{20}$, so the gap spans many orders of magnitude.
-
-The final result lower-bounds the quality of the exported ensemble.
-\begin{theorem}[Ensemble ICIR lower bound]
-\label{thm:alphaqd_ensemble}
-If the export retains $K$ positive-ICIR elites with daily IC variables $X_1,\dots,X_K$ satisfying $\mathbb{E}[X_i]\ge\mu_{\min}>0$, $\Var(X_i)\le\sigma^2$, and $\corr(X_i,X_j)\le\rho$, then the equal-weight ensemble $X_{\mathrm{ens}}=\frac{1}{K}\sum_i X_i$ obeys
-\begin{equation}
-\label{eq:alphaqd_ensemble}
-\mathrm{ICIR}(X_{\mathrm{ens}}) \ge \frac{\mu_{\min}\sqrt{K}}{\sigma\sqrt{1+(K-1)\rho}}.
-\end{equation}
-\end{theorem}
-The bound rests on two premises that AlphaQD supplies by construction: the positive-ICIR admission rule guarantees $\mu_i>0$, and the bounded per-cell quota with the PCA descriptor controls $\rho$ by spreading elites across cells (\sref{sec:alphaqd_diagnostics} reports an empirical pairwise correlation of $0.2478$). Boosting-style fitting preserves neither premise, so no analogous bound is available for it.
-
-%----------------------------------------------------------------------------------------
 \section{Experimental Setup}
-\label{sec:alphaqd_setup}
+\label{sec:fineft_setup}
 
-\paragraph{Datasets.} We evaluate on two markets so the comparison is not anchored to one regime. The Chinese A-share panel (the canonical alpha-mining setting) is the primary benchmark: full-market BaoStock daily data, $7{,}207$ instruments over $3{,}963$ calendar days from 2010-01-04 to 2026-04-30. The U.S.\ panel is an independent check with different microstructure and base rates: a Tiingo Russell-3000-style universe of $2{,}571$ instruments over $4{,}109$ calendar days. All methods share the same split: 2010--2021 for training, 2022 for validation, and 2023-01-01 to 2026-04-30 for testing, with forward-return horizon $h=20$ days. The training window drives the search; the validation window fits only the shared ridge combiner; the test window is touched once per (method, seed).
+\paragraph{Datasets.} We evaluate on four mainstream cryptocurrencies over more than two years, covering bull, bear, and volatile conditions (\tref{tab:fineft_dataset}). On each, the last six months are used for testing, the preceding six for validation, and the first year for training. The ensemble is trained on the training set; the validation set is segmented and labelled to filter the ensemble and train the VAEs, and to tune the routing hyperparameters (threshold $\tau$, decay $\gamma$, window length).
 
-\paragraph{Compared methods.} We compare against eleven baselines in four families: supervised (Alpha101~\cite{kakushadze2016101}, MLP~\cite{murtagh1991mlp}, XGBoost~\cite{chen2016xgboost}, LightGBM~\cite{ke2017lightgbm}); genetic programming (GP single-predictor; GP with mutual-IC filter; GP without filter~\cite{stephens2015gplearn}); and generative/RL (AlphaForge~\cite{shi2025alphaforge}, AlphaGen-PPO~\cite{yu2023alphagen}, AlphaQCM~\cite{zhu2025alphaqcm}, AlphaSAGE~\cite{chen2025alphasage}). Pool-style baselines export ten alphas each, matching AlphaQD's $K^\star=10$.
+\begin{table}[!htb]
+\setlength\tabcolsep{6pt}
+\centering
+\caption[FineFT dataset statistics.]{The four cryptocurrency futures datasets, with the dynamic of the test period, number of steps, and chronological span. Dates are in YY/MM/DD format.}
+\label{tab:fineft_dataset}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Dataset} & \textbf{Test dynamic} & \textbf{Size} & \textbf{From} & \textbf{To} \\
+\midrule
+BNB/USDT & Bear     & 210{,}241 & 22/01/01 & 24/01/01 \\
+BTC/USDT & Bull     & 210{,}241 & 22/01/01 & 24/01/01 \\
+DOT/USDT & Sideways & 210{,}241 & 22/01/01 & 24/01/01 \\
+ETH/USDT & Sideways & 210{,}241 & 22/01/01 & 24/01/01 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-\paragraph{Unified protocol.} Every pool-style method, including AlphaQD, exports a fixed-size pool fed to the same closed-form ridge combiner with weights fitted on training and held fixed at test, so the table reports the quality of the discovered set rather than method-specific weighting. We report signal-layer IC, ICIR, and RankIC together with portfolio-layer annualised net Sharpe, annualised net return, maximum drawdown, and annualised turnover. The portfolio is long-only top-$50$ rebalanced every twenty trading days, executed at $\mathrm{VWAP}_{t+1}$ on A-shares and $\mathrm{Open}_{t+1}$ on the U.S.\ panel, with round-trip costs of $12.5$ and $3.5$ basis points respectively.
+\paragraph{Baselines.} We compare against twelve methods: two policy-based (PPO~\cite{schulman2017proximal}, DRA~\cite{briola2021deep}); two value-based (DQN~\cite{mnih2015human}, CRP~\cite{zhu2022quantitative}); two rule-based (MACD~\cite{krug2022enforcing}, IV~\cite{chordia2002order}); two ensemble (EDQN~\cite{anschel2017averaged}, SUNRISE~\cite{lee2021sunrise}); one distributional (RAQR~\cite{dabney2018distributional}); and three hierarchical (WINOW~\cite{zhang2000regularized}, EHFT~\cite{qin2024earnhft}, MHFT~\cite{zong2024macrohft}). The same hyperparameters used by FineFT are applied to the baselines where applicable.
+
+\paragraph{Training.} Experiments run on four RTX~4090 GPUs, completing in about six hours. The transaction cost is $0.02\%$, following Binance, with a leverage factor of $5$. We report the six metrics of \sref{sec:bg_metrics}.
 
 %----------------------------------------------------------------------------------------
 \section{Results and Analysis}
-\label{sec:alphaqd_results}
+\label{sec:fineft_results}
 
-\subsection{Main Results}
-\label{sec:alphaqd_main}
+\subsection{Comparison with Baselines}
+\label{sec:fineft_comparison}
 
-\tref{tab:alphaqd_main} reports both panels under the unified-ridge protocol, aggregated over seeds $\{0,1,2,12345\}$ where stochastic.
+\tref{tab:fineft_main} reports the main comparison. FineFT attains the highest risk-adjusted profit (ASR, ACR, ASoR) on three of the four markets and the strongest risk control (lowest MDD) among methods that maintain meaningful market exposure. Several patterns are visible. Value-based methods (DQN, CRP) perform well only when the trend is stable and the validation--test gap is small, with CRP outperforming DQN, confirming the value of training stability under high stochasticity. Policy-based methods (DRA, PPO) generally beat DQN but fail to surpass CRP, suggesting premature convergence to suboptimal policies in non-stationary environments; the small gap between DRA and PPO indicates that an LSTM encoder helps little under such noise. Rule-based methods depend heavily on the validation--test similarity that fixes their hyperparameters. Ensemble (EDQN, SUNRISE) and distributional (RAQR) methods reduce variance and so reduce risk, but RAQR does so by trading almost nothing---its near-zero volatility on DOT and ETH reflects negligible participation rather than skilful control. Hierarchical methods (WINOW, EHFT, MHFT) achieve markedly higher profit and depend less on validation--test similarity, but exhibit large drawdowns precisely because they lack any awareness of their capability boundary. FineFT retains hierarchical-level profitability on familiar states while turning conservative on unfamiliar ones, thereby avoiding the large losses that the other hierarchical methods incur.
 
 \begin{table}[!htb]
 \centering
-\caption[AlphaQD main results.]{Main results on the 2023-01-01 to 2026-04-30 test window under the unified-ridge protocol. Entries are mean $\pm$ population standard deviation over seeds $\{0,1,2,12345\}$ where stochastic. Portfolio metrics are net of round-trip costs on a long-only top-$50$ portfolio rebalanced every twenty trading days. \fst{First}, \snd{second}, and \trd{third} per column within each panel.}
-\label{tab:alphaqd_main}
-\renewcommand{\arraystretch}{1.15}
+\caption[FineFT main results.]{Performance comparison on four crypto futures markets against twelve baselines (four plain, two ensemble, one distributional, three hierarchical, two rule-based). Arrows indicate the preferred direction; \fst{pink} marks the best entry per market and metric. TR, AVOL, and MDD are in percent. RAQR's near-zero risk on DOT and ETH reflects negligible market participation.}
+\label{tab:fineft_main}
+\renewcommand{\arraystretch}{1.1}
 \footnotesize
 \resizebox{\textwidth}{!}{
-\begin{tabular}{llccccccc}
+\begin{tabular}{llcccccc}
 \toprule
-Family & Method & IC$\uparrow$ & ICIR$\uparrow$ & RankIC$\uparrow$ & Sharpe$\uparrow$ & AnnRet(\%)$\uparrow$ & MDD(\%)$\uparrow$ & TO/yr$\downarrow$ \\
+Market & Model & TR$\uparrow$ & ASR$\uparrow$ & ACR$\uparrow$ & ASoR$\uparrow$ & AVOL$\downarrow$ & MDD$\downarrow$ \\
 \midrule
-\multicolumn{9}{c}{\textit{Panel A: Chinese A-share}} \\
+\multirow{13}{*}{BNB}
+ & DRA     & $-64.79$ & $-1.51$ & $-2.58$ & $-13.43$ & $6.53$ & $72.88$ \\
+ & PPO     & $-59.58$ & $-1.64$ & $-2.59$ & $-14.12$ & $5.55$ & $67.37$ \\
+ & CRP     & $-64.79$ & $-1.43$ & $-2.59$ & $-12.98$ & $6.92$ & $72.88$ \\
+ & DQN     & $-55.85$ & $-1.21$ & $-2.14$ & $-13.72$ & $6.09$ & $66.09$ \\
+ & MACD    & $-82.85$ & $-3.04$ & $-4.12$ & $-22.67$ & $6.28$ & $88.70$ \\
+ & IV      & $-71.00$ & $-1.59$ & $-2.73$ & $-14.31$ & $6.59$ & $73.21$ \\
+ & EDQN    & $-64.79$ & $-1.51$ & $-2.58$ & $-13.43$ & $6.53$ & $72.88$ \\
+ & SUNRISE & $-66.75$ & $-1.74$ & $-2.80$ & $-14.45$ & $6.27$ & $74.32$ \\
+ & RAQR    & $-68.88$ & $-1.84$ & $-3.10$ & $-14.22$ & $6.47$ & $73.27$ \\
+ & WINOW   & \fst{$86.65$} & $2.01$ & $5.99$ & $31.71$ & $5.46$ & $34.93$ \\
+ & EHFT    & $-69.32$ & $-2.08$ & $-3.26$ & $-17.31$ & $6.05$ & $73.61$ \\
+ & MHFT    & $-50.42$ & $-0.81$ & $-1.48$ & $-9.10$ & $6.47$ & $67.95$ \\
+ & FineFT  & $83.70$ & \fst{$2.55$} & \fst{$11.19$} & \fst{$101.17$} & \fst{$3.57$} & \fst{$15.49$} \\
 \midrule
-Formulaic & Alpha101 & $0.0487$ & $0.408$ & $0.082$ & \fst{$0.983$} & \snd{$19.9$} & \fst{$-26.1$} & $23.9$ \\
-\multirow{3}{*}{Supervised} & MLP & $0.0079$ & $0.111$ & $0.017$ & $0.319$ & $9.1$ & $-49.7$ & $12.9$ \\
- & LightGBM & $0.0189$ & $0.262$ & $0.035$ & $0.309$ & $10.0$ & $-52.7$ & \snd{$12.0$} \\
- & XGBoost & $0.0199$ & $0.266$ & $0.036$ & $0.236$ & $6.9$ & $-50.6$ & \trd{$12.4$} \\
-\multirow{3}{*}{Genetic Prog.} & GP (predictor) & $-0.0101$ & $-0.082$ & $-0.016$ & $0.292$ & $6.4$ & $-40.4$ & \fst{$3.8$} \\
- & GP w/ filter & \trd{$0.0652$} & $0.507$ & \snd{$0.105$} & $0.663$ & \trd{$18.6$} & $-39.1$ & $15.1$ \\
- & GP w/o filter & \fst{$0.0703$} & \fst{$0.581$} & \trd{$0.102$} & $0.501$ & $10.8$ & $-35.7$ & $20.2$ \\
-\multirow{4}{*}{Generative / RL} & AlphaForge & $0.0636$ & \trd{$0.553$} & $0.086$ & $0.534$ & $14.4$ & $-37.0$ & $19.5$ \\
- & AlphaGen-PPO & $0.0435$ & $0.495$ & $0.049$ & $0.275$ & $4.1$ & $-43.3$ & $22.2$ \\
- & AlphaQCM (FQF) & $0.0206$ & $0.255$ & $0.020$ & $0.053$ & $1.7$ & $-46.8$ & $19.3$ \\
- & AlphaSAGE (GNN) & $0.0552$ & \snd{$0.555$} & $0.095$ & \trd{$0.730$} & $14.9$ & \snd{$-27.4$} & $18.3$ \\
-Ours & \textbf{AlphaQD} & \snd{$0.0673$} & $0.522$ & \fst{$0.112$} & \snd{$0.911$} & \fst{$24.7$} & \trd{$-31.5$} & $12.5$ \\
+\multirow{13}{*}{BTC}
+ & DRA     & $21.93$ & $0.94$ & $2.12$ & $4.90$ & $6.90$ & $58.28$ \\
+ & PPO     & $19.68$ & $0.90$ & $2.01$ & $4.39$ & $6.83$ & $58.30$ \\
+ & CRP     & $19.61$ & $0.85$ & $1.79$ & $4.62$ & $6.44$ & $58.30$ \\
+ & DQN     & $-82.13$ & $-12.03$ & $-4.94$ & $-51.81$ & \fst{$1.77$} & $82.37$ \\
+ & MACD    & $-26.28$ & $-0.17$ & $-0.31$ & $-9.44$ & $5.91$ & $60.17$ \\
+ & IV      & $-17.26$ & $0.01$ & $0.02$ & $-4.26$ & $5.80$ & $63.25$ \\
+ & EDQN    & $25.11$ & $0.98$ & $2.15$ & $5.88$ & $6.80$ & $59.28$ \\
+ & SUNRISE & $-7.91$ & $0.37$ & $0.76$ & $-2.06$ & $6.87$ & $63.36$ \\
+ & RAQR    & $2.84$ & $0.57$ & $1.10$ & $0.71$ & $5.19$ & $51.19$ \\
+ & WINOW   & $-34.03$ & $-0.23$ & $-0.56$ & $-8.62$ & $7.09$ & $55.30$ \\
+ & EHFT    & $33.44$ & $1.42$ & $2.73$ & $10.78$ & $4.29$ & $42.61$ \\
+ & MHFT    & $-25.85$ & $-0.32$ & $-0.57$ & $-7.27$ & $4.46$ & $47.97$ \\
+ & FineFT  & \fst{$76.90$} & \fst{$2.13$} & \fst{$7.44$} & \fst{$39.51$} & $4.29$ & \fst{$23.51$} \\
 \midrule
-\multicolumn{9}{c}{\textit{Panel B: U.S.\ Russell-3000-style universe}} \\
+\multirow{13}{*}{DOT}
+ & DRA     & $-65.15$ & $-1.63$ & $-2.63$ & $-15.21$ & $6.20$ & $73.36$ \\
+ & PPO     & $-65.65$ & $-1.63$ & $-2.64$ & $-15.18$ & $6.27$ & $73.80$ \\
+ & CRP     & $-73.13$ & $-4.12$ & $-4.09$ & $-27.08$ & $3.93$ & $75.58$ \\
+ & DQN     & $-64.89$ & $-1.35$ & $-2.40$ & $-13.66$ & $6.84$ & $73.42$ \\
+ & MACD    & $26.07$ & $1.10$ & $2.72$ & $6.24$ & $7.74$ & $60.01$ \\
+ & IV      & $-66.24$ & $-1.67$ & $-2.70$ & $-15.32$ & $6.26$ & $73.80$ \\
+ & EDQN    & $-65.65$ & $-1.63$ & $-2.64$ & $-15.18$ & $6.27$ & $73.80$ \\
+ & SUNRISE & $-59.18$ & $-1.02$ & $-1.84$ & $-12.51$ & $6.94$ & $73.60$ \\
+ & RAQR    & $-4.45$ & $-4.47$ & $-1.76$ & $-45.61$ & \fst{$0.10$} & \fst{$4.72$} \\
+ & WINOW   & $-81.86$ & $-4.17$ & $-4.63$ & $-26.72$ & $4.85$ & $83.35$ \\
+ & EHFT    & $89.00$ & $1.95$ & $4.09$ & $19.78$ & $6.28$ & $57.18$ \\
+ & MHFT    & \fst{$220.44$} & \fst{$3.48$} & \fst{$10.47$} & \fst{$65.02$} & $5.10$ & $32.44$ \\
+ & FineFT  & $18.39$ & $1.08$ & $2.50$ & $14.46$ & $2.64$ & $21.87$ \\
 \midrule
-Formulaic & Alpha101 & $0.0188$ & $0.358$ & \snd{$-0.002$} & $1.511$ & $38.2$ & \snd{$-15.9$} & $23.0$ \\
-\multirow{3}{*}{Supervised} & MLP & $0.0446$ & \fst{$0.604$} & \trd{$-0.002$} & $1.796$ & $99.8$ & \trd{$-16.3$} & $9.1$ \\
- & LightGBM & $0.0404$ & $0.454$ & $-0.009$ & $2.090$ & $119.1$ & $-21.6$ & $8.7$ \\
- & XGBoost & $0.0335$ & $0.395$ & $-0.006$ & $2.120$ & $129.2$ & $-23.4$ & $9.6$ \\
-\multirow{3}{*}{Genetic Prog.} & GP (predictor) & $-0.0104$ & $-0.073$ & \fst{$0.004$} & $1.202$ & $39.4$ & \fst{$-15.2$} & \fst{$5.7$} \\
- & GP w/ filter & \snd{$0.0691$} & $0.512$ & $-0.005$ & \fst{$2.180$} & \fst{$141.6$} & $-26.7$ & $9.5$ \\
- & GP w/o filter & \fst{$0.0717$} & \snd{$0.568$} & $-0.013$ & \trd{$2.164$} & \snd{$141.3$} & $-24.7$ & $10.2$ \\
-\multirow{4}{*}{Generative / RL} & AlphaForge & $0.0481$ & $0.430$ & $-0.008$ & $1.856$ & $107.0$ & $-23.4$ & $11.6$ \\
- & AlphaGen-PPO & $0.0542$ & $0.437$ & $-0.010$ & $2.056$ & $129.8$ & $-23.3$ & $13.8$ \\
- & AlphaQCM (FQF) & $0.0486$ & $0.453$ & $-0.002$ & $1.942$ & $103.8$ & $-21.1$ & \trd{$7.9$} \\
- & AlphaSAGE (GNN) & $0.0614$ & $0.539$ & $-0.007$ & $2.111$ & $131.3$ & $-24.2$ & $10.5$ \\
-Ours & \textbf{AlphaQD} & \trd{$0.0655$} & \trd{$0.551$} & $-0.010$ & \snd{$2.177$} & \trd{$133.3$} & $-22.5$ & \snd{$6.7$} \\
+\multirow{13}{*}{ETH}
+ & DRA     & $-46.56$ & $-0.77$ & $-1.44$ & $-10.86$ & $6.18$ & $63.20$ \\
+ & PPO     & $-46.08$ & $-0.74$ & $-1.39$ & $-10.68$ & $6.23$ & $63.01$ \\
+ & CRP     & $-46.06$ & $-0.95$ & $-1.69$ & $-11.36$ & $5.88$ & $62.96$ \\
+ & DQN     & $-73.15$ & $-3.94$ & $-3.88$ & $-27.31$ & $3.89$ & $75.48$ \\
+ & MACD    & $-73.93$ & $-2.78$ & $-3.49$ & $-21.52$ & $5.30$ & $80.85$ \\
+ & IV      & $-50.53$ & $-1.04$ & $-1.82$ & $-12.29$ & $5.87$ & $63.87$ \\
+ & EDQN    & $-46.00$ & $-0.73$ & $-1.39$ & $-10.65$ & $6.23$ & $62.96$ \\
+ & SUNRISE & $-81.22$ & $-4.45$ & $-4.57$ & $-23.85$ & $4.48$ & $83.36$ \\
+ & RAQR    & $-5.94$ & $-4.10$ & $-2.65$ & $-13.75$ & \fst{$0.21$} & \fst{$6.08$} \\
+ & WINOW   & $26.36$ & $1.06$ & $3.55$ & $6.98$ & $6.59$ & $37.55$ \\
+ & EHFT    & \fst{$48.72$} & $1.49$ & $3.33$ & $10.66$ & $5.65$ & $48.33$ \\
+ & MHFT    & $-75.16$ & $-2.21$ & $-3.26$ & $-15.37$ & $6.32$ & $81.79$ \\
+ & FineFT  & $39.05$ & \fst{$1.74$} & \fst{$5.78$} & \fst{$14.45$} & $2.96$ & $16.96$ \\
 \bottomrule
 \end{tabular}}
 \end{table}
 
-\paragraph{A-share findings.} On the A-share panel, AlphaQD attains the highest annualised return and the highest RankIC of any method, the second-highest IC (behind GP-without-filter), and the second-highest Sharpe (behind only the fixed Alpha101 catalogue), while showing the smallest seed-to-seed standard deviation on Sharpe, annualised return, and RankIC within the top quality cluster. That cluster---GP-without-filter, AlphaForge, AlphaSAGE, and AlphaQD---has statistically indistinguishable mean ICIRs, but the three competitors do not convert signal quality into stable portfolio performance to the same extent: GP-without-filter and AlphaForge carry seed-level Sharpe deviations larger than their means, so any single deployment is essentially a coin flip; AlphaSAGE is stable but with annualised return roughly ten points below AlphaQD and turnover 46\% higher. Among learned pool-style baselines AlphaQD also has the lowest turnover. Its gains therefore come from converting signal quality into portfolio performance reliably, not from out-signalling the field. \fref{fig:alphaqd_nav} plots the cumulative net NAV of the five learned pool-style methods.
+\subsection{Effectiveness of the Selective-Update Ensemble}
+\label{sec:fineft_ablation_su}
+
+\tref{tab:fineft_su} compares FineFT's pre-trained selective update (FP) against three alternatives on five dynamics: EHFT-style prioritised episode selection (EP), random dataset selection (ER), and FineFT without pre-training (FwoP). Convergence steps (CS) measure efficiency and reward sum (RS) the converged performance. FP converges in the fewest steps while achieving the strongest converged performance, confirming that sharing transitions selectively---rather than training each learner independently---improves both efficiency and the performance ceiling.
+
+\begin{table}[!htb]
+\setlength\tabcolsep{6pt}
+\centering
+\caption[Ablation of the selective-update ensemble.]{Convergence and performance of the selective-update ensemble against three training schemes on five dynamics: EHFT prioritised episode selection (EP), random selection (ER), FineFT with pre-training (FP), and without pre-training (FwoP). CS is convergence steps; RS is reward sum. \fst{Pink} and \snd{green} mark the best and second-best.}
+\label{tab:fineft_su}
+\begin{tabular}{cccc cccc}
+\toprule
+Method & CS$\downarrow$ & Dyn & RS$\uparrow$ & Method & CS$\downarrow$ & Dyn & RS$\uparrow$ \\
+\midrule
+\multirow{5}{*}{EP} & \multirow{5}{*}{\snd{$71712$}} & 1 & $2.86$ & \multirow{5}{*}{ER} & \multirow{5}{*}{$112320$} & 1 & $2.86$ \\
+ & & 2 & $2.14$ & & & 2 & $2.15$ \\
+ & & 3 & $0.50$ & & & 3 & $0.48$ \\
+ & & 4 & $4.98$ & & & 4 & $4.98$ \\
+ & & 5 & $9.14$ & & & 5 & $9.14$ \\
+\midrule
+\multirow{5}{*}{FP} & \multirow{5}{*}{\fst{$66528$}} & 1 & \fst{$45.29$} & \multirow{5}{*}{FwoP} & \multirow{5}{*}{$79488$} & 1 & \snd{$37.34$} \\
+ & & 2 & \fst{$18.21$} & & & 2 & \snd{$16.18$} \\
+ & & 3 & \snd{$4.77$} & & & 3 & \fst{$6.39$} \\
+ & & 4 & \snd{$24.48$} & & & 4 & \fst{$25.53$} \\
+ & & 5 & \snd{$40.23$} & & & 5 & \fst{$46.17$} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Effectiveness of Risk-Aware Routing and Case Studies}
+\label{sec:fineft_ablation_routing}
+
+The risk-aware router is the source of FineFT's risk reduction. As the test period drifts further from the training and validation windows, the proportion of conservative-policy selections rises, and FineFT outperforms both its no-risk-threshold variant and any single specialist. Two case studies make the mechanism concrete. First, \fref{fig:fineft_update} visualises the relationship between the updated learner index and the market dynamic during selective update: distinct learners specialise in distinct dynamics---some in sudden surges, others in sharp drops, others in minor fluctuations---confirming that the ensemble does not learn randomly but partitions the market. Second, \fref{fig:fineft_vae} shows the VAE proactively closing a BNB position upon encountering unfamiliar states, despite no closing signal from the selected specialist, avoiding the loss from a subsequent decline that coincided with an on-chain upgrade event.
 
 \begin{figure}[!htb]
 \centering
-\includegraphics[width=0.8\textwidth]{Chapter5/alphaqd_portfolio_nav}
-\caption[Cumulative NAV on the A-share test window.]{Cumulative net NAV (start $=1.0$) on the A-share test window 2023-01-01 to 2026-04-30 for the five learned pool-style methods. Solid lines are the mean NAV across seeds $\{0,1,2,12345\}$ at each rebalance date; shaded bands span $\pm 1$ population standard deviation; the dashed line marks NAV $=1$. The portfolio is the long-only top-$50$ rebalanced every twenty trading days at $\mathrm{VWAP}_{t+1}$ with $12.5$ bps round-trip cost.}
-\label{fig:alphaqd_nav}
+\includegraphics[width=\textwidth]{Chapter5/fineft_update_index}
+\caption[Specialisation under selective update.]{BTC return curve coloured by the index of the learner updated under selective update. The horizontal axis is time and the vertical axis cumulative return; distinct learners (colours) specialise in distinct market dynamics rather than learning interchangeably.}
+\label{fig:fineft_update}
 \end{figure}
-
-\paragraph{U.S.\ findings.} On the U.S.\ panel the signal-quality columns (IC, ICIR, RankIC) are the credible discriminators: RankIC clusters around zero and Sharpe-style numbers around two for all baselines, reflecting market beta in the 2023--2026 window rather than alpha-driven return. AlphaQD ranks third on both IC and ICIR while again showing the smallest seed deviation on every IC-family metric and the lowest turnover among learned-search methods. Critically, the IC magnitude on the U.S.\ panel (around $0.066$) matches the A-share magnitude (around $0.067$), so the method ordering is preserved across two dissimilar markets---a cross-market stability that the boosting-style baselines do not exhibit (for example, AlphaQCM moves from $0.021$ on A-shares to $0.049$ on the U.S.\ panel).
-
-\subsection{Archive Diagnostics}
-\label{sec:alphaqd_diagnostics}
-
-On a representative training archive, AlphaQD occupies $97$ of $100$ behaviour cells, stores $282$ elites, and reaches a best in-archive ICIR of $0.7540$. The mean pairwise correlation among stored daily IC series is $0.2478$. Both statistics support the descriptor's role: near-complete occupancy indicates that the normalised IC shape spreads candidates across the grid rather than collapsing into one mode, and the modest correlation indicates that retained formulas explain genuinely different return sources rather than re-encoding one signal---precisely the controlled $\rho$ that \tref{tab:alphaqd_main}'s portfolio stability and Theorem~\ref{thm:alphaqd_ensemble} require. \fref{fig:alphaqd_archive} renders the archive.
 
 \begin{figure}[!htb]
 \centering
-\includegraphics[width=0.8\textwidth]{Chapter5/alphaqd_archive_heatmap}
-\caption[The AlphaQD MAP-Elites archive.]{The AlphaQD MAP-Elites archive on the $10\times 10$ behaviour-descriptor grid (vertical axis PC1 bin, horizontal axis PC2 bin). \emph{(a)} number of stored elites per cell; \emph{(b)} representative ICIR per cell, with the top-$10$ exported cells outlined.}
-\label{fig:alphaqd_archive}
+\includegraphics[width=\textwidth]{Chapter5/fineft_vae_triggered}
+\caption[Out-of-distribution detection with a VAE.]{VAE-driven risk control on BNB. The horizontal axis is time and the vertical axis price; red and green markers are FineFT's sell and buy signals. The position is closed proactively when the rolling-window VAE loss is high, ahead of a subsequent decline.}
+\label{fig:fineft_vae}
 \end{figure}
-
-\subsection{Ablations}
-\label{sec:alphaqd_ablation}
-
-A grid over behaviour-descriptor dimension $d_b\in\{1,2,3\}$, per-cell capacity $\kappa\in\{1,3,5\}$, and reward temperature $\beta_q\in\{0.5,1,2,5\}$ confirms the design choices. Marginal ICIR declines gently from $d_b=1$ to $d_b=3$, consistent with a higher-dimensional descriptor spreading candidates over more cells; the canonical $d_b=2$ sits in the favourable region while preserving an interpretable two-axis archive. Capacity $\kappa\ge 3$ is preferred over $\kappa=1$, supporting the in-cell Pareto front over a single elite. The reward temperature is non-monotone, peaking at $\beta_q=2$, consistent with the boundary between coverage-preserving and quality-concentrating sampling. Full ablation tables are given in \aref{app:alphaqd_theory}.
 
 %----------------------------------------------------------------------------------------
-\section{Summary}
-\label{sec:alphaqd_summary}
+\section{Chapter Summary}
+\label{sec:fineft_summary}
 
-This chapter presented AlphaQD, a quality-diversity RL method for formulaic alpha mining. Its central choice is structural: the running pool is removed from the generator's reward, and diversity, robustness, and selection are handled by a MAP-Elites archive whose behaviour descriptor is the normalised daily IC series---an empirical proxy for a formula's return source. The training-window reward is thereby invariant to archive updates, and the export rule yields a pool whose effective complexity scales with the number of occupied cells rather than the cardinality of the formula space. On full-market A-share and U.S.\ benchmarks AlphaQD lies in the leading signal cluster on both markets, attains the highest annualised return and net Sharpe among learned formula-mining methods on A-shares, and exhibits the smallest seed variance and lowest turnover among learned pool-style methods. In the arc of the thesis, AlphaQD is the endpoint of the selector-decoupling trajectory: where EarnHFT learns its router and FineFT derives one heuristically from generative uncertainty, AlphaQD removes the selector from the learning reward entirely, and reaps from this decoupling both reward stationarity and a finite-sample generalisation guarantee.
+This chapter presented FineFT, a three-stage risk-aware ensemble RL framework for leveraged futures. It trains diverse specialists efficiently through a selective-update rule that exploits an ensemble TD-error matrix and, as a by-product, segments the market automatically; it equips each specialist with a VAE that captures its capability boundary; and it routes between specialists and a conservative fallback by out-of-distribution detection. FineFT outperforms twelve baselines, reducing risk by more than 40\% relative to the runner-up while remaining the most profitable learned method. Relative to EarnHFT, FineFT advances the thesis on two fronts: it makes the agent aware of its competence, addressing the epistemic uncertainty that leverage renders fatal; and it replaces the learned router with a heuristic one driven by generative uncertainty estimates, decoupling selection from policy learning. The next chapter completes this trajectory, moving from execution to signal generation and removing the selector from the learning reward altogether.

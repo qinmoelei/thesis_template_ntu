@@ -1,347 +1,304 @@
 %!TEX root=../mythesis.tex
-% Chapter 4 -- FineFT
+% Chapter 3 -- EarnHFT
 
-\chapter{FineFT: Risk-Aware Ensemble Reinforcement Learning for Futures Trading} % Main chapter title
-\chaptermark{FineFT for Futures Trading}
-\label{ch:fineft}
+\chapter{EarnHFT: Hierarchical Reinforcement Learning for High-Frequency Trading} % Main chapter title
+\chaptermark{EarnHFT for High-Frequency Trading}
+\label{ch:earnhft}
 
 %----------------------------------------------------------------------------------------
 \section{Introduction}
-\label{sec:fineft_intro}
+\label{sec:earnhft_intro}
 
-Futures are standardised contracts obligating the exchange of an asset at a predetermined date and price. They account for the majority of cryptocurrency trading volume~\cite{aleti2021bitcoin} because they permit both long and short positions and offer high leverage, attracting risk-seeking traders and creating a deeply liquid market with capacity in the tens of trillions of dollars. Futures trading is therefore a crucial domain for quantitative methods, and the natural next task after the spot high-frequency trading of \cref{ch:earnhft}.
+High-frequency trading (HFT) uses computer algorithms to place and cancel orders at very short time scales, and accounts for a majority of volume in modern financial markets~\cite{ALMEIDA2023100785}. It is especially prevalent in the cryptocurrency market, whose round-the-clock trading removes overnight risk and whose dramatic price fluctuations create frequent short-lived opportunities. A profitable HFT strategy can outperform a low-frequency one, which is why it is pursued aggressively by quantitative traders.
 
-Reinforcement learning has succeeded across many trading tasks~\cite{qin2024earnhft,zong2024macrohft}, but those methods target low-leverage markets such as spot or stock and do not transfer to leveraged futures, for two reasons that constitute Gap~II of \sref{sec:bg_gaps} and are illustrated in \fref{fig:fineft_motivation}.
+Reinforcement learning has produced strong results on low-frequency tasks such as daily stock or futures trading~\cite{sun2022deepscalper,briola2021deep}, but these methods rarely survive the move to HFT, for two reasons identified in \sref{sec:bg_gaps} as Gap~I.
 
 \begin{itemize}
-\item \textbf{Leverage amplifies the stochasticity of the reward.} High leverage magnifies the inherent noise of financial markets~\cite{sun2023mastering}: even in nearly identical states, identical actions can lead to vastly different rewards and next states. This aleatoric uncertainty, visible in \fref{fig:fineft_motivation}(a) as wide variation in future return for almost identical market-state values, undermines the convergence and stability of RL and reduces data efficiency.
-\item \textbf{Agents are unaware of their capability boundary.} Because RL overfits the training set, a policy becomes unreliable on market states unseen during training, exposing it to severe capital loss~\cite{lan2022generalization}. A black-swan event---such as the late-2022 shift triggered by aggressive interest-rate hikes, visible in \fref{fig:fineft_motivation}(b) as an abrupt jump of a state cluster---can liquidate an agent that lacks self-awareness of its competence. This is an \emph{epistemic} uncertainty that low-leverage methods can afford to ignore but leveraged ones cannot.
+\item \textbf{The horizon is extreme, so RL is data-inefficient.} A second-level agent must be evaluated over dozens of days, giving a horizon of roughly one million steps---for instance, $60\times 60\times 24\times 12 = 1{,}036{,}800$ seconds over twelve days---against the few-thousand-step horizon of Atari benchmarks~\cite{mnih2013playing}. Such horizons demand far more data to converge~\cite{zhang2023towards}, straining computation.
+\item \textbf{The market drifts, so a single agent cannot maintain performance.} Standard RL assumes the training and testing environments coincide. In cryptocurrency, the market trend changes substantially between them; an agent trained under one trend incurs large losses when the trend reverses.
 \end{itemize}
 
-\begin{figure}[!htb]
-\centering
-\includegraphics[width=\textwidth]{Chapter4/fineft_motivation}
-\caption[Two challenges of RL in futures trading.]{The two challenges RL faces in futures trading. The horizontal axis is time; the vertical axis is a one-dimensional t-SNE~\cite{van2008visualizing} embedding of the market state $y_t$; colour encodes the future five-minute return. \emph{(a)} Aleatoric uncertainty: nearly identical state values yield widely varying future returns. \emph{(b)} Distribution shift: a state cluster abruptly relocates during a macro event.}
-\label{fig:fineft_motivation}
-\end{figure}
-
-This chapter presents FineFT, an e\textbf{F}ficient and r\textbf{I}sk-aware e\textbf{N}semble r\textbf{E}inforcement learning method for \textbf{F}utures \textbf{T}rading, with three stages summarised in \fref{fig:fineft_pipeline}. It follows the same decompose--specialise--select pattern as EarnHFT, but the selector is now risk-aware and the agent is made competence-aware.
+This chapter presents EarnHFT, an \textbf{E}fficient hier\textbf{A}rchical \textbf{R}einforcement lear\textbf{N}ing method for \textbf{H}igh \textbf{F}requency \textbf{T}rading, whose three stages are summarised in \fref{fig:earnhft_pipeline}. The design follows the decompose--specialise--select pattern of \sref{sec:intro_pattern}.
 
 \begin{enumerate}
-\item \textbf{Stage~I (selective-update ensemble).} We initialise $N$ deep Q-networks, pre-train them on demonstrations, and then update them \emph{selectively}: for each transition we update only the learner with the smallest temporal-difference error and its neighbours. This trains diverse specialists efficiently and segments the market automatically.
-\item \textbf{Stage~II (filter and boundary).} We filter the ensemble by profitability under each market dynamic to shrink the pool, and train a variational autoencoder per dynamic to capture each specialist's capability boundary and detect out-of-distribution states.
-\item \textbf{Stage~III (risk-aware routing).} Guided by VAE losses on recent states, we route to the best in-distribution specialist for profit, and fall back to a conservative policy on out-of-distribution states to control risk.
+\item \textbf{Stage~I (Q-teacher).} We exploit a structural property of execution---that at second scale a single trader's orders do not move prices, so future prices are independent of the policy---to compute, by dynamic programming, the optimal action value for every state. Used as a regulariser and a demonstrator, this ``Q-teacher'' accelerates and stabilises second-level training.
+\item \textbf{Stage~II (specialist pool).} We train hundreds of agents under different market-trend preferences, segment and label the market without hyperparameter tuning, and select a small pool of the most profitable specialists.
+\item \textbf{Stage~III (router).} We train a minute-level router that dynamically picks a second-level specialist from the pool to maintain performance as the market changes.
 \end{enumerate}
 
-On crypto futures with $5\times$ leverage, FineFT outperforms twelve state-of-the-art baselines on six metrics, reducing risk by more than 40\% relative to the runner-up while remaining the most profitable learned method.
+Across four cryptocurrency markets spanning bull, bear, and sideways conditions, EarnHFT outperforms six state-of-the-art baselines on six financial metrics, exceeding the runner-up by at least 30\% in profitability.
 
 \begin{figure}[!htb]
 \centering
-\includegraphics[width=\textwidth]{Chapter4/fineft_pipeline}
-\caption[The FineFT framework.]{Overview of the three stages of FineFT. Stage~I computes ensemble TD errors for selective updates. Stage~II filters the ensemble by performance across dynamics and trains a VAE per dynamic to identify capability boundaries. Stage~III routes among the ensemble and a conservative policy for stable performance and risk reduction.}
-\label{fig:fineft_pipeline}
+\includegraphics[width=\textwidth]{Chapter4/earnhft_pipeline}
+\caption[The EarnHFT framework.]{Overview of the three stages of EarnHFT. Stage~I computes a Q-teacher to enhance the performance and training efficiency of second-level agents. Stage~II trains diverse agents under various market trends and selects a small fraction by profitability to form an agent pool. Stage~III trains a minute-level router that dynamically picks a second-level agent from the pool.}
+\label{fig:earnhft_pipeline}
 \end{figure}
 
 %----------------------------------------------------------------------------------------
 \section{Problem Formulation}
-\label{sec:fineft_formulation}
+\label{sec:earnhft_formulation}
 
-Beyond the concepts of \sref{sec:bg_instruments}, futures trading introduces \emph{leverage} $L_t$, the ratio of position value to required margin; the \emph{mark price} $M_t$; a \emph{market order loss} $O_t$ that captures slippage and commission; a \emph{funding fee} $F_{ft}=F_{rt}H_t$ paid to hold a leveraged position; and the \emph{margin balance} $V_t$, the sum of cash and position value net of realised costs. The objective is to maximise the margin balance via leveraged market orders on a single asset at minute scale.
+The financial concepts---limit order book, OHLC, technical indicators, market order, position, and net value---are defined in \sref{sec:bg_instruments}. We restrict attention to a single asset with long-only positions, and the objective is to maximise net value $V_t=V_{ct}+H_t\, p_t^{b_1}$, where $V_{ct}$ is cash and $H_t$ the position valued at the best bid. The execution price of a market order walks the book, $E_t(M)=\sum_i (p_t^i\min(q_t^i,R_{i-1}))(1+\sigma)$, where $R_{i-1}$ is the residual quantity after level $i$ and $\sigma$ the commission rate.
 
-\subsection{A Dynamic Parametric MDP}
-\label{sec:fineft_dpmdp}
+\subsection{A Hierarchical Markov Decision Process}
+\label{sec:earnhft_hmdp}
 
-To make the non-stationarity explicit, we model futures trading as a dynamic parametric MDP (DP-MDP)~\cite{xie2020deep}, the tuple $(\mathcal{S},\mathcal{A},P,r,\gamma,T,Z,P_z)$ that augments the MDP of \sref{sec:bg_mdp} with a \emph{dynamic} space $Z$ and its transition $P_z$. The dynamic $z$ governs the transition $P:\mathcal{S}\times Z\times\mathcal{A}\times\mathcal{S}\to[0,1]$ but is not revealed to the agent, and it evolves much more slowly than the state. Crucially, this means that \emph{over a short horizon the experienced transitions behave as those of a stationary MDP}---the assumption that legitimises training a specialist per dynamic.
+The two challenges of \sref{sec:earnhft_intro} have a common structural cause: micro-level information drifts, so no single agent profits under all trends, while macro-level information, an aggregation of the micro level, carries the slow trend signal. We therefore decompose HFT into a hierarchical MDP $(\mathrm{MDP}_h,\mathrm{MDP}_l)$, in which a low-level MDP at second scale models micro-level dynamics and execution, and a high-level MDP at minute scale models macro-level trend and strategy switching:
+\begin{align*}
+\mathrm{MDP}_h &= (S_h,A_h,P_h,R_h,\gamma_h,T_h), &
+\mathrm{MDP}_l &= (S_l,A_l,P_l,R_l,\gamma_l,T_l).
+\end{align*}
 
-The goal is to learn a set of specialist policies $\Pi_A=(\pi_{\theta_1},\dots,\pi_{\theta_m})$ and a router $\pi_{\theta_r}:\mathcal{S}\to Z$ that compose an optimal strategy $\pi^\star=\argmax_{A,\theta_r}\mathbb{E}_{\Pi_A,\pi_{\theta_r}}[\sum_{t=0}^T\gamma^t r_t]$. The state $S_t$ consists of around 300 technical indicators $y_t$ and the position $H_t$; the reward is the margin-balance change
-\begin{equation}
-\label{eq:fineft_reward}
-r_t = V_{t+1}-V_t = H_t(M_{t+1}-M_t)-O_t,
-\end{equation}
-combining valuation change and order loss; and the action is a target (position, leverage) pair drawn from a finite pool, executed instantly by a market order.
+\paragraph{Low level (second scale).} The state $S_{lt}$ comprises a latent representation $y_{lt}$ of 54 micro-level technical indicators computed from a length-60 rolling window of second-level OHLC and LOB snapshots, together with the current position $H_t$. The action $a_{lt}$ is a target position chosen from a finite pool $\{0,\frac{H}{|A|-1},\dots,H\}$; if it differs from the current position, a market order is executed immediately. The reward $r_{lt}=H_{t+1}p_{t+1}^{b_1}-(H_t p_t^{b_1}+E_t(H_{t+1}-H_t))$ is the per-second change in net value.
+
+\paragraph{High level (minute scale).} The state $S_{ht}$ comprises a latent representation $y_{ht}$ of 19 macro-level indicators from a length-60 rolling window of minute-level OHLC, together with $H_t$. The action $a_{ht}$ selects an agent from the pre-trained pool $A_h$. The reward $r_{hT}=\sum_{t=T}^{T+\tau}r_{lt}$ is the net-value change accrued by the selected low-level agent over one minute. In summary, every minute the high-level router picks a low-level agent, which then adjusts its position every second; the goal is to find a set of specialists and a router that jointly maximise total profit.
 
 %----------------------------------------------------------------------------------------
 \section{Method}
-\label{sec:fineft_method}
+\label{sec:earnhft_method}
 
-\subsection{Stage I: Efficient Ensemble with Selective Update}
-\label{sec:fineft_stage1}
+\subsection{Stage I: Efficient Reinforcement Learning with a Q-Teacher}
+\label{sec:earnhft_stage1}
 
-A mixture of experts performs well on trading tasks but is expensive to construct, because every specialist is trained independently~\cite{qin2024earnhft,sun2023mastering}. FineFT instead trains the ensemble jointly: all learners share a pre-training phase that installs common knowledge, after which each transition updates only the best-fitting learner and its neighbours. The aim is an ensemble in which each learner masters one dynamic $z$ of the DP-MDP.
+A long trajectory normally inflates the cost of RL. In the low-level MDP, however, prices are not influenced by the policy, so future prices are known in hindsight on historical data. This lets us construct the optimal action value $Q^\star$ by dynamic programming~\cite{sutton2018reinforcement} and use it to teach the agent, both as a value supervisor and as a demonstrator.
 
-Each of the $N$ learners is a multilayer perceptron with identical architecture but a distinct random seed, assigned an index $1,\dots,N$.
-
-\paragraph{Pre-training with demonstrations.} As new traders are trained together before specialising, we first train all learners on the same demonstration transitions. Following the principle of \cref{ch:earnhft}, we build a \emph{constrained} optimal action value (Algorithm~\ref{alg:fineft_coav}) by adding a liquidation mask to the dynamic-programming construction, and use it both as an optimal actor (to generate demonstrations) and an optimal value supervisor. Three auxiliary policies---emptying, maximally long, maximally short---add diverse transitions. Each learner is updated with a Huber TD error~\cite{huber1992robust}, robust to the outliers leverage produces, plus the KL supervision:
+\paragraph{Optimal value supervisor.} Because the position set is finite, the optimal action value can be computed backwards: from the last step, the value of each (position, action) pair is the immediate reward plus the best continuation value, as in Algorithm~\ref{alg:earnhft_qtable}. We add to the DDQN loss a supervision term that is the Kullback--Leibler divergence between the agent's action values and the optimal action values at the same state:
 \begin{equation}
-\label{eq:fineft_pretrain}
-L(\theta_i) = L_{td_i} + \alpha\,\mathrm{KL}\!\left(Q(s,\cdot;\theta_i)\,\|\,Q^\star(s,\cdot)\right),
-\quad
-L_{td_i} = \mathcal{H}\!\left(r + \gamma\max Q(s,\cdot;\theta_i') - Q(s,a;\theta_i)\right),
+\label{eq:earnhft_loss}
+L(\theta_i) = L_{td} + \alpha\,\mathrm{KL}\!\left(Q_t(\chi,p,\cdot;\theta_i)\,\|\,Q^\star(\chi,p,\cdot)\right),
 \end{equation}
-where $\mathcal{H}$ is the Huber loss, quadratic for small errors and linear for large ones. The total pre-training loss sums \eqref{eq:fineft_pretrain} over all learners.
+where $L_{td}=\left(r+\gamma\max Q_t(\chi',a,\cdot;\theta_i')-Q_t(\chi,p,a;\theta_i)\right)^2$ is the DDQN temporal-difference error, $\chi$ the latent representation, $p$ the position, and $\alpha$ a coefficient decaying over time. The supervision term lets the agent learn the relative advantage of all actions at a state without exploring them, accelerating training.
 
 \begin{algorithm}[!htb]
-\caption{Constrained Optimal Action Value}
-\label{alg:fineft_coav}
+\caption{Construction of the Optimal Action Value}
+\label{alg:earnhft_qtable}
 \begin{algorithmic}[1]
-\State \textbf{Input:} LOB series $B$, mark-price series $M$ of length $N$, action space $A$, mask penalty $P$, capital $C$
-\State \textbf{Output:} table $Q^\star$ of optimal action values
+\State \textbf{Input:} time series $\mathcal{D}$ of length $N$, commission rate $\delta$, action space $A$
+\State \textbf{Output:} table $Q^\star$ of optimal action values indexed by time, position, action
 \State Initialise $Q^\star$ with shape $(N,|A|,|A|)$ and all elements $0$.
 \For{$t \gets N-1$ \textbf{to} $1$}
-  \For{$p,a \gets 1$ \textbf{to} $|A|$}
-    \State $Q^\star[t,p,a] \gets \max_{a'} Q^\star[t+1,a,a'] + r_t$ \Comment{$r_t$ via \eqref{eq:fineft_reward}}
-    \If{$V_t \le C$}
-      \State $Q^\star[t,p,a] \gets Q^\star[t,p,a] - P$ \Comment{liquidation mask}
-    \EndIf
+  \For{$p \gets 1$ \textbf{to} $|A|$}
+    \For{$a \gets 1$ \textbf{to} $|A|$}
+      \State $Q^\star[t,p,a] \gets \max_{a'} Q^\star[t+1,a,a'] + a\,p_{t+1}^{b_1} - (p\,p_{t}^{b_1} + E_t(p-a))$
+    \EndFor
   \EndFor
 \EndFor
 \State \textbf{return} $Q^\star$
 \end{algorithmic}
 \end{algorithm}
 
-\paragraph{Selective update with neighbours.} Although dynamics share basic principles, their most profitable strategies conflict, which is why diversity matters. Prior work obtains diversity by training learners independently with preference sampling~\cite{qin2024earnhft}, at high cost. FineFT instead shares transitions selectively. For each transition we assign larger weight to the learner with the most accurate Q-value---the smallest TD error---and to its index-neighbours, while leaving poorly fitting learners untouched, because their competence lies in a different dynamic that this transition would only corrupt. This creates a positive feedback loop: as a learner specialises in a dynamic, its TD error there falls, so future transitions from that dynamic are increasingly routed to it, reinforcing specialisation.
-
-Concretely, for each transition we form an ensemble TD-error matrix $L$ with entries
-\begin{equation}
-\label{eq:fineft_etd}
-L_{ij} = \mathcal{H}\!\left(r + \gamma\max Q(s',\cdot;\theta_j') - Q(s,a;\theta_i)\right),
-\end{equation}
-the cross-learner Huber TD error ($L_{ii}$ is learner $i$'s own error). Algorithm~\ref{alg:fineft_weight} converts $L$ into a weight matrix $\mathcal{W}$: it locates the best learner $i^\star=\argmin_i L_{ii}$, expands a neighbourhood of radius $m$, and assigns diagonal weights that decay with distance from $i^\star$ and off-diagonal weights that decay with index difference. The total selective-update loss for a transition is
-\begin{equation}
-\label{eq:fineft_final_loss}
-L = \sum_{i=1}^{N}\sum_{j=1}^{N}\mathcal{W}_{ij}L_{ij} + \mathbf{d}_{\mathcal{W}}\,O_{\mathrm{KL}}^{\top},
-\end{equation}
-where $\mathbf{d}_{\mathcal{W}}$ is the diagonal of $\mathcal{W}$ and $O_{\mathrm{KL}}$ collects the per-learner KL supervision. The cross-learner terms share experience among learners of similar dynamics while preventing experience poisoning across dissimilar ones. A convergence analysis is given in \aref{app:fineft_proof}.
+\paragraph{Optimal actor.} Supervision alone is insufficient, because the optimal action value is conditioned on the current position: once the agent deviates from the optimal policy, the supervision target shifts, compounding the deviation. We therefore additionally train on transitions generated by the optimal policy itself---the action with the highest optimal value---which supplies demonstration experience and prevents the agent from settling in a local trap. Algorithm~\ref{alg:earnhft_efficient} collects experience from both the $\epsilon$-greedy policy and the optimal actor, then updates the network using both TD errors and the KL supervision.
 
 \begin{algorithm}[!htb]
-\caption{Construction of the Weight Matrix}
-\label{alg:fineft_weight}
+\caption{Efficient Reinforcement Learning with a Q-Teacher}
+\label{alg:earnhft_efficient}
 \begin{algorithmic}[1]
-\State \textbf{Input:} ensemble TD-error matrix $\mathcal{L}$, neighbour count $m$
-\State \textbf{Output:} weight matrix $\mathcal{W}$
-\State Initialise $\mathcal{W}$ with shape $(N,N)$ and all elements $0$.
-\State $i^\star \gets \argmin_i L_{ii}$; \; $i_{\min}\gets\max(i^\star-m,1)$; \; $i_{\max}\gets\min(i^\star+m,N)$
-\For{$i = i_{\min}$ \textbf{to} $i_{\max}$}
-  \State $\mathcal{W}_{ii} \gets 1 - \dfrac{|i-i^\star|}{i_{\max}-i_{\min}}$ \Comment{diagonal decay}
+\State \textbf{Input:} time series $\mathcal{D}$ of length $N$, commission rate $\delta$, action space $A$
+\State \textbf{Output:} network parameters $\theta$
+\State Initialise replay buffer $R$, network $Q_\theta$, target $Q_{\theta'}$; build $Q^\star$ via Algorithm~\ref{alg:earnhft_qtable}; initialise environment.
+\For{$t = 1$ \textbf{to} $N-1$} \Comment{exploration rollout}
+  \State Choose $a_\epsilon$ by the $\epsilon$-greedy policy; store $(s,a_\epsilon,r,s',Q^\star)$ in $R$.
 \EndFor
-\For{$i,j \gets 1$ \textbf{to} $N$}
-  \If{$i \neq j$}
-    \State $\mathcal{W}_{ij} \gets \min(\mathcal{W}_{ii},\mathcal{W}_{jj})\left(1 - \dfrac{|i-j|}{i_{\max}-i_{\min}}\right)$ \Comment{off-diagonal decay}
-  \EndIf
+\For{$t = 1$ \textbf{to} $N-1$} \Comment{optimal-actor rollout}
+  \State Choose $a_o = \argmax_{a} Q^\star[t,p,a]$; store $(s,a_o,r,s',Q^\star)$ in $R$.
 \EndFor
-\State \textbf{return} $\mathcal{W}$
+\State Sample transitions; compute $L$ by \eqref{eq:earnhft_loss}; descend on $\theta$ and set $\theta'=\tau\theta+(1-\tau)\theta'$.
+\State \textbf{return} $Q_\theta$
 \end{algorithmic}
 \end{algorithm}
 
-\subsection{Stage II: Ensemble Filter and Boundary Identification}
-\label{sec:fineft_stage2}
+The Q-teacher does not compromise correctness. Treating the supervised update as an operator $H$ on action values, one can show $H$ is a contraction in the sup-norm whose fixed point is $Q^\star$, so the learned value still converges to the optimum; the statement and proof are deferred to \aref{app:earnhft_proof}.
 
-Knowing which dynamic each learner suits is necessary but not sufficient for safe routing; we must also know the boundary within which each learner is competent.
+\begin{theorem}[Convergence of the supervised update, informal]
+\label{thm:earnhft_convergence}
+Under a finite MDP, the action value learned with the optimal-value-supervisor update of \eqref{eq:earnhft_loss} converges to the optimal action value $Q^\star$.
+\end{theorem}
 
-\paragraph{Filtering by profitability.} We divide the market into dynamics by slope, following \cref{ch:earnhft}: the series is low-pass filtered, segmented at local extrema, and adjacent chunks with similar slope are merged until stable, yielding $m$ dynamics. We back-test each learner across initial positions and retain, for each dynamic, the learner with the highest average profitability, producing a small, diverse, profitable pool.
+\subsection{Stage II: Construction of the Agent Pool}
+\label{sec:earnhft_stage2}
 
-\paragraph{Boundary identification with VAEs.} To capture each learner's capability boundary we train a variational autoencoder~\cite{kingma2013auto} on the market-state representations of each dynamic. A VAE encodes its input into a regularised latent distribution and decodes a reconstruction; because it gives a probabilistic measure of how well a new input matches the training distribution, it is a principled out-of-distribution detector. For $m$ dynamics we train $m$ VAEs, each on the states $Y_i$ of its dynamic, minimising
+Because micro-level information changes rapidly, no single agent maintains performance over a long period; preliminary experiments confirm that training across conflicting trends is incompatible. We therefore decompose the market into trends and develop a specialist for each.
+
+\paragraph{Generating diverse agents.} Prior approaches obtain diversity as a by-product of random seeds or hyperparameter search~\cite{sun2023mastering}, which is unstructured. We instead train agents with explicit \emph{preferences} over market trends. The training series (over three million steps) is cut into chunks of length $L$, each a continuous trend; a preference parameter $\beta$ assigns each chunk with buy-and-hold return rate $r$ a sampling priority
 \begin{equation}
-\label{eq:fineft_vae}
-L^i(y\in Y_i) = N_{LL}\!\left(\mu_d, \tfrac{1}{2}\log\sigma_d^2, y\right) + \mathrm{KLD}\!\left(\mu,\log\sigma^2\right),
+\label{eq:earnhft_pes}
+f(x) =
+\begin{cases}
+\dfrac{e^{\beta r}}{\mathrm{pdf}(r)} & \text{if } Q_{\frac{\theta}{2}}(R) \le r \le Q_{1-\frac{\theta}{2}}(R),\\[2mm]
+e^{\beta r} & \text{otherwise},
+\end{cases}
 \end{equation}
-the reconstruction negative log-likelihood plus the normal-distribution regulariser. After training we record, for each VAE $M^{v_i}$, the negative loss on every state of its dynamic as reference scores $R^i$, used at deployment.
-
-\subsection{Stage III: Risk-Aware Heuristic Routing}
-\label{sec:fineft_stage3}
-
-\paragraph{Conservative policy.} For states never seen during training or validation we design a conservative policy: hold the position if the single-trade drawdown stays under 5\%, otherwise close it. This policy only closes, never opens, reducing position churn and ensuring losses are cut once a stop-loss triggers on unfamiliar states.
-
-\paragraph{Routing with VAE losses.} Training a high-level RL router is data-inefficient~\cite{qin2024earnhft,zong2024macrohft}, so we route heuristically. Given a window of recent states $Y^u_T=(y_{T-u},\dots,y_T)$, each state's score under dynamic $i$ is its empirical-CDF position among the reference scores $R^i$, smoothed by an exponential moving average:
+where $Q_{\frac{\theta}{2}}(R)$ is the $\frac{\theta}{2}$-quantile of return rates and $\mathrm{pdf}$ is a kernel density estimate,
 \begin{equation}
-\label{eq:fineft_ema}
-R^i_t = F_{R^i}\!\left(-L^i(y_t)\right),
-\quad
-Re^{iu}_{T_t} = \gamma\,Re^{iu}_{T_{t-1}} + R^{iu}_t,
-\quad
-Re^{iu}_T = Re^{iu}_{T_T}.
+\label{eq:earnhft_kernel}
+\mathrm{pdf}(x)=\frac{1}{nh}\sum_{r\in R} K\!\left(\frac{x-r}{h}\right),
 \end{equation}
-We select the dynamic $i=\argmax_i Re^{iu}_T$ and compare its score with a risk threshold $\tau$: if it falls below $\tau$, the recent states are unfamiliar and we choose the conservative policy; otherwise we deploy the corresponding specialist (Algorithm~\ref{alg:fineft_routing}). This is the second instantiation of the thesis's selector---no longer a learned router, but a heuristic driven by generative uncertainty estimates, and hence partly decoupled from the policy learning.
+with bandwidth $h$ searched around Silverman's rule~\cite{silverman1984spline} and $K$ a standard normal kernel. Dividing by the density removes the influence of the dataset's own distribution, while $e^{\beta r}$ tilts sampling towards a preferred trend; clipping the extremes prevents a few violent chunks from poisoning the agent everywhere. Different $\beta$ values yield agents specialised to different trends.
+
+\paragraph{Market segmentation and labelling.} To evaluate specialists per trend we need to label the market. Algorithm~\ref{alg:earnhft_segment} denoises the series, splits it at extrema, merges adjacent segments whose dynamic-time-warping~\cite{muda2010voice} and slope differences are small, and labels segments by slope quantiles. Unlike prior methods, it requires no per-dataset hyperparameter tuning.
 
 \begin{algorithm}[!htb]
-\caption{Risk-Aware Heuristic Routing}
-\label{alg:fineft_routing}
+\caption{Market Segmentation and Labelling}
+\label{alg:earnhft_segment}
 \begin{algorithmic}[1]
-\State \textbf{Input:} specialists $\Pi=(\pi^1,\dots,\pi^m)$, VAEs $M^v$, reference scores $R$, state window $Y^u_T$, decay $\gamma$, threshold $\tau$
-\State \textbf{Output:} current strategy $\pi$
-\For{dynamic $i = 1$ \textbf{to} $m$}
-  \State Obtain state scores $R^i_t$ from $M^{v_i}$, $Y^u_T$, and $R^i$.
-  \State Compute the EMA score $Re^{iu}_T$ by \eqref{eq:fineft_ema}.
-\EndFor
-\State $i \gets \argmax_i Re^{iu}_T$
-\If{$Re^{iu}_T \le \tau$}
-  \State \textbf{return} conservative policy $\pi^c$ \Comment{out-of-distribution}
-\Else
-  \State \textbf{return} specialist $\pi^i$
-\EndIf
+\State \textbf{Input:} time series $\mathcal{D}$ of length $N$; risk threshold $\theta$; number of labels $M$
+\State \textbf{Output:} a trend label for every point of $\mathcal{D}$
+\State $\mathcal{D}' \gets$ denoise high-frequency noise of $\mathcal{D}$.
+\State Divide $\mathcal{D}'$ at its extrema into segments $S$.
+\State Merge adjacent segments in $S$ whose DTW and slope differences are small, until $S$ is stable.
+\State Compute thresholds $H = Q_{1-\frac{\theta}{2}}(R)$, $L = Q_{\frac{\theta}{2}}(R)$ on segment slopes $R$.
+\State Compute per-label slope bounds from the quantiles and thresholds; label each segment.
+\State \textbf{return} the label of each segment.
 \end{algorithmic}
 \end{algorithm}
+
+\paragraph{Agent selection.} Including all trained agents would inflate the router's action space, so we select a small pool. Each point of the validation set is labelled by Algorithm~\ref{alg:earnhft_segment}; agents are evaluated across trends and initial positions, and the most profitable agent under each (trend, initial-position) pair is retained, forming a two-dimensional pool indexed by $(m,n)$ for $m$ trends and $n$ initial positions.
+
+\subsection{Stage III: Dynamic Routing}
+\label{sec:earnhft_stage3}
+
+We train the router for the high-level MDP with DDQN~\cite{van2016deep}. Operating at minute scale shortens the trajectory by 98.33\% relative to the second scale, and we further restrict the router, at each step, to agents whose initial position matches the current position, reducing the choice to $m$ agents. We deliberately do \emph{not} compute a Q-teacher for the router: the horizon is already short, and the high-level action is a strategy rather than a target position, which would make the optimal value expensive to compute. With the computation for self-exploration reduced and that for the teacher increased, plain DDQN is the more efficient choice at the high level.
 
 %----------------------------------------------------------------------------------------
 \section{Experimental Setup}
-\label{sec:fineft_setup}
+\label{sec:earnhft_setup}
 
-\paragraph{Datasets.} We evaluate on four mainstream cryptocurrencies over more than two years, covering bull, bear, and volatile conditions (\tref{tab:fineft_dataset}). On each, the last six months are used for testing, the preceding six for validation, and the first year for training. The ensemble is trained on the training set; the validation set is segmented and labelled to filter the ensemble and train the VAEs, and to tune the routing hyperparameters (threshold $\tau$, decay $\gamma$, window length).
+\paragraph{Datasets.} We evaluate on four cryptocurrencies covering mainstream and niche assets and bull, bear, and sideways conditions, summarised in \tref{tab:earnhft_dataset}. On each, the last nine days are used for testing, the preceding nine for validation, and the remainder for training. Low-level agents are trained on the training set; the validation set is segmented and labelled for model selection; the router is then trained on the training set and selected on the full validation set before testing.
 
 \begin{table}[!htb]
 \setlength\tabcolsep{6pt}
 \centering
-\caption[FineFT dataset statistics.]{The four cryptocurrency futures datasets, with the dynamic of the test period, number of steps, and chronological span. Dates are in YY/MM/DD format.}
-\label{tab:fineft_dataset}
+\caption[EarnHFT dataset statistics.]{The four cryptocurrency datasets, with market dynamics, number of seconds, and chronological span. Dates are in YY/MM/DD format.}
+\label{tab:earnhft_dataset}
 \begin{tabular}{lcccc}
 \toprule
-\textbf{Dataset} & \textbf{Test dynamic} & \textbf{Size} & \textbf{From} & \textbf{To} \\
+\textbf{Dataset} & \textbf{Dynamics} & \textbf{Seconds} & \textbf{From} & \textbf{To} \\
 \midrule
-BNB/USDT & Bear     & 210{,}241 & 22/01/01 & 24/01/01 \\
-BTC/USDT & Bull     & 210{,}241 & 22/01/01 & 24/01/01 \\
-DOT/USDT & Sideways & 210{,}241 & 22/01/01 & 24/01/01 \\
-ETH/USDT & Sideways & 210{,}241 & 22/01/01 & 24/01/01 \\
+BTC/TUSD & Sideways & 4{,}057{,}140 & 23/03/30 & 23/05/15 \\
+BTC/USDT & Sideways & 3{,}884{,}400 & 22/09/01 & 22/10/15 \\
+ETH/USDT & Bear     & 3{,}970{,}800 & 22/05/01 & 22/06/15 \\
+GALA/USDT & Bull    & 3{,}970{,}740 & 22/07/01 & 22/08/15 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\paragraph{Baselines.} We compare against twelve methods: two policy-based (PPO~\cite{schulman2017proximal}, DRA~\cite{briola2021deep}); two value-based (DQN~\cite{mnih2015human}, CRP~\cite{zhu2022quantitative}); two rule-based (MACD~\cite{krug2022enforcing}, IV~\cite{chordia2002order}); two ensemble (EDQN~\cite{anschel2017averaged}, SUNRISE~\cite{lee2021sunrise}); one distributional (RAQR~\cite{dabney2018distributional}); and three hierarchical (WINOW~\cite{zhang2000regularized}, EHFT~\cite{qin2024earnhft}, MHFT~\cite{zong2024macrohft}). The same hyperparameters used by FineFT are applied to the baselines where applicable.
+\paragraph{Metrics.} We report the six financial metrics defined in \sref{sec:bg_metrics}: TR (profit); ASR, ACR, ASoR (risk-adjusted profit); and AVOL, MDD (risk).
 
-\paragraph{Training.} Experiments run on four RTX~4090 GPUs, completing in about six hours. The transaction cost is $0.02\%$, following Binance, with a leverage factor of $5$. We report the six metrics of \sref{sec:bg_metrics}.
+\paragraph{Baselines.} We compare against six methods: two policy-based RL algorithms, PPO~\cite{schulman2017proximal} and DRA~\cite{briola2021deep}; two value-based RL algorithms, DQN~\cite{mnih2015human} and CDQNRP~\cite{zhu2022quantitative}; and two rule-based methods, MACD~\cite{krug2022enforcing} and IV~\cite{chordia2002order}. Where official implementations exist we reuse their hyperparameters; otherwise we reimplement faithfully from the original papers.
+
+\paragraph{Training.} All experiments run on a single RTX~4090 GPU. The commission rate is $0$ for BTC/TUSD and $0.02\%$ for the others, following Binance. We train with $\beta\in\{-90,-10,30,100\}$ for 50 epochs each, producing 200 agents, optimised with Adam. The full set of experiments completes in about ten hours.
 
 %----------------------------------------------------------------------------------------
 \section{Results and Analysis}
-\label{sec:fineft_results}
+\label{sec:earnhft_results}
 
 \subsection{Comparison with Baselines}
-\label{sec:fineft_comparison}
+\label{sec:earnhft_comparison}
 
-\tref{tab:fineft_main} reports the main comparison. FineFT attains the highest risk-adjusted profit (ASR, ACR, ASoR) on three of the four markets and the strongest risk control (lowest MDD) among methods that maintain meaningful market exposure. Several patterns are visible. Value-based methods (DQN, CRP) perform well only when the trend is stable and the validation--test gap is small, with CRP outperforming DQN, confirming the value of training stability under high stochasticity. Policy-based methods (DRA, PPO) generally beat DQN but fail to surpass CRP, suggesting premature convergence to suboptimal policies in non-stationary environments; the small gap between DRA and PPO indicates that an LSTM encoder helps little under such noise. Rule-based methods depend heavily on the validation--test similarity that fixes their hyperparameters. Ensemble (EDQN, SUNRISE) and distributional (RAQR) methods reduce variance and so reduce risk, but RAQR does so by trading almost nothing---its near-zero volatility on DOT and ETH reflects negligible participation rather than skilful control. Hierarchical methods (WINOW, EHFT, MHFT) achieve markedly higher profit and depend less on validation--test similarity, but exhibit large drawdowns precisely because they lack any awareness of their capability boundary. FineFT retains hierarchical-level profitability on familiar states while turning conservative on unfamiliar ones, thereby avoiding the large losses that the other hierarchical methods incur.
+\tref{tab:earnhft_main} reports the main comparison. EarnHFT achieves the highest profit (TR) on all four datasets and the highest risk-adjusted profit on three. Value-based methods (DQN, CDQNRP) perform acceptably only when the validation and test sets are similar under a stable trend. Policy-based methods (PPO, DRA) tend to collapse onto a do-nothing policy---returning a target equal to the current position to avoid commission---even at a learning rate of $10^{-7}$, and fail badly in the bear market. Rule-based methods are highly sensitive to their take-profit and stop-loss thresholds and earn only moderate profit in volatile markets. EarnHFT, by contrast, is a deliberately aggressive trader because the optimal-value supervisor and optimal actor convey profit-oriented experience; it consequently trails on some risk metrics while dominating on profit. \fref{fig:earnhft_trading} shows a representative episode: EarnHFT opens and closes a position within thirty seconds, profiting from a movement that appears as a mere pullback at minute scale.
 
 \begin{table}[!htb]
 \centering
-\caption[FineFT main results.]{Performance comparison on four crypto futures markets against twelve baselines (four plain, two ensemble, one distributional, three hierarchical, two rule-based). Arrows indicate the preferred direction; \fst{pink} marks the best entry per market and metric. TR, AVOL, and MDD are in percent. RAQR's near-zero risk on DOT and ETH reflects negligible market participation.}
-\label{tab:fineft_main}
-\renewcommand{\arraystretch}{1.1}
-\footnotesize
+\caption[EarnHFT main results.]{Performance comparison on four cryptocurrency markets against six baselines (two policy-based, two value-based, two rule-based RL/rule methods). Arrows indicate the preferred direction; \fst{pink} marks the best entry per market and metric. TR, AVOL, and MDD are in percent.}
+\label{tab:earnhft_main}
+\renewcommand{\arraystretch}{1.15}
 \resizebox{\textwidth}{!}{
 \begin{tabular}{llcccccc}
 \toprule
 Market & Model & TR$\uparrow$ & ASR$\uparrow$ & ACR$\uparrow$ & ASoR$\uparrow$ & AVOL$\downarrow$ & MDD$\downarrow$ \\
 \midrule
-\multirow{13}{*}{BNB}
- & DRA     & $-64.79$ & $-1.51$ & $-2.58$ & $-13.43$ & $6.53$ & $72.88$ \\
- & PPO     & $-59.58$ & $-1.64$ & $-2.59$ & $-14.12$ & $5.55$ & $67.37$ \\
- & CRP     & $-64.79$ & $-1.43$ & $-2.59$ & $-12.98$ & $6.92$ & $72.88$ \\
- & DQN     & $-55.85$ & $-1.21$ & $-2.14$ & $-13.72$ & $6.09$ & $66.09$ \\
- & MACD    & $-82.85$ & $-3.04$ & $-4.12$ & $-22.67$ & $6.28$ & $88.70$ \\
- & IV      & $-71.00$ & $-1.59$ & $-2.73$ & $-14.31$ & $6.59$ & $73.21$ \\
- & EDQN    & $-64.79$ & $-1.51$ & $-2.58$ & $-13.43$ & $6.53$ & $72.88$ \\
- & SUNRISE & $-66.75$ & $-1.74$ & $-2.80$ & $-14.45$ & $6.27$ & $74.32$ \\
- & RAQR    & $-68.88$ & $-1.84$ & $-3.10$ & $-14.22$ & $6.47$ & $73.27$ \\
- & WINOW   & \fst{$86.65$} & $2.01$ & $5.99$ & $31.71$ & $5.46$ & $34.93$ \\
- & EHFT    & $-69.32$ & $-2.08$ & $-3.26$ & $-17.31$ & $6.05$ & $73.61$ \\
- & MHFT    & $-50.42$ & $-0.81$ & $-1.48$ & $-9.10$ & $6.47$ & $67.95$ \\
- & FineFT  & $83.70$ & \fst{$2.55$} & \fst{$11.19$} & \fst{$101.17$} & \fst{$3.57$} & \fst{$15.49$} \\
+\multirow{7}{*}{BTCU}
+ & DRA    & $-4.56$ & $-4.28$ & $-19.57$ & $-4.65$ & $42.25$ & $9.24$ \\
+ & PPO    & $-3.61$ & $-5.25$ & $-22.74$ & $-5.71$ & $27.76$ & $6.41$ \\
+ & CDQNRP & $-2.83$ & $-2.91$ & $-14.85$ & $-3.31$ & $37.61$ & $7.38$ \\
+ & DQN    & $-3.48$ & $-12.37$ & $-35.01$ & $-11.86$ & \fst{$11.57$} & $4.09$ \\
+ & MACD   & $-6.07$ & $-10.11$ & $-25.17$ & $-8.05$ & $24.84$ & $9.98$ \\
+ & IV     & $-2.99$ & $-3.78$ & $-14.24$ & $-3.27$ & $31.35$ & $8.32$ \\
+ & EarnHFT & \fst{$0.72$} & \fst{$1.22$} & \fst{$10.77$} & \fst{$0.93$} & $27.08$ & \fst{$3.07$} \\
 \midrule
-\multirow{13}{*}{BTC}
- & DRA     & $21.93$ & $0.94$ & $2.12$ & $4.90$ & $6.90$ & $58.28$ \\
- & PPO     & $19.68$ & $0.90$ & $2.01$ & $4.39$ & $6.83$ & $58.30$ \\
- & CRP     & $19.61$ & $0.85$ & $1.79$ & $4.62$ & $6.44$ & $58.30$ \\
- & DQN     & $-82.13$ & $-12.03$ & $-4.94$ & $-51.81$ & \fst{$1.77$} & $82.37$ \\
- & MACD    & $-26.28$ & $-0.17$ & $-0.31$ & $-9.44$ & $5.91$ & $60.17$ \\
- & IV      & $-17.26$ & $0.01$ & $0.02$ & $-4.26$ & $5.80$ & $63.25$ \\
- & EDQN    & $25.11$ & $0.98$ & $2.15$ & $5.88$ & $6.80$ & $59.28$ \\
- & SUNRISE & $-7.91$ & $0.37$ & $0.76$ & $-2.06$ & $6.87$ & $63.36$ \\
- & RAQR    & $2.84$ & $0.57$ & $1.10$ & $0.71$ & $5.19$ & $51.19$ \\
- & WINOW   & $-34.03$ & $-0.23$ & $-0.56$ & $-8.62$ & $7.09$ & $55.30$ \\
- & EHFT    & $33.44$ & $1.42$ & $2.73$ & $10.78$ & $4.29$ & $42.61$ \\
- & MHFT    & $-25.85$ & $-0.32$ & $-0.57$ & $-7.27$ & $4.46$ & $47.97$ \\
- & FineFT  & \fst{$76.90$} & \fst{$2.13$} & \fst{$7.44$} & \fst{$39.51$} & $4.29$ & \fst{$23.51$} \\
+\multirow{7}{*}{BTCT}
+ & DRA    & $-2.65$ & $-4.82$ & $-17.48$ & $-4.77$ & $21.18$ & $5.84$ \\
+ & PPO    & $-0.60$ & $-14.74$ & $-35.80$ & $-0.14$ & $1.59$ & $0.65$ \\
+ & CDQNRP & $-0.60$ & $-19.52$ & $-37.88$ & $-0.74$ & \fst{$1.20$} & \fst{$0.61$} \\
+ & DQN    & $0.47$ & \fst{$4.21$} & \fst{$27.94$} & \fst{$1.14$} & $4.38$ & $0.66$ \\
+ & MACD   & $-4.02$ & $-5.80$ & $-24.21$ & $-4.32$ & $26.87$ & $6.44$ \\
+ & IV     & $-12.01$ & $-17.83$ & $-38.99$ & $-13.90$ & $27.68$ & $12.66$ \\
+ & EarnHFT & \fst{$0.99$} & $1.34$ & $7.76$ & $1.01$ & $32.40$ & $5.61$ \\
 \midrule
-\multirow{13}{*}{DOT}
- & DRA     & $-65.15$ & $-1.63$ & $-2.63$ & $-15.21$ & $6.20$ & $73.36$ \\
- & PPO     & $-65.65$ & $-1.63$ & $-2.64$ & $-15.18$ & $6.27$ & $73.80$ \\
- & CRP     & $-73.13$ & $-4.12$ & $-4.09$ & $-27.08$ & $3.93$ & $75.58$ \\
- & DQN     & $-64.89$ & $-1.35$ & $-2.40$ & $-13.66$ & $6.84$ & $73.42$ \\
- & MACD    & $26.07$ & $1.10$ & $2.72$ & $6.24$ & $7.74$ & $60.01$ \\
- & IV      & $-66.24$ & $-1.67$ & $-2.70$ & $-15.32$ & $6.26$ & $73.80$ \\
- & EDQN    & $-65.65$ & $-1.63$ & $-2.64$ & $-15.18$ & $6.27$ & $73.80$ \\
- & SUNRISE & $-59.18$ & $-1.02$ & $-1.84$ & $-12.51$ & $6.94$ & $73.60$ \\
- & RAQR    & $-4.45$ & $-4.47$ & $-1.76$ & $-45.61$ & \fst{$0.10$} & \fst{$4.72$} \\
- & WINOW   & $-81.86$ & $-4.17$ & $-4.63$ & $-26.72$ & $4.85$ & $83.35$ \\
- & EHFT    & $89.00$ & $1.95$ & $4.09$ & $19.78$ & $6.28$ & $57.18$ \\
- & MHFT    & \fst{$220.44$} & \fst{$3.48$} & \fst{$10.47$} & \fst{$65.02$} & $5.10$ & $32.44$ \\
- & FineFT  & $18.39$ & $1.08$ & $2.50$ & $14.46$ & $2.64$ & $21.87$ \\
+\multirow{7}{*}{ETH}
+ & DRA    & $-33.37$ & $-9.06$ & $-32.23$ & $-9.20$ & $163.25$ & $45.88$ \\
+ & PPO    & $-22.61$ & $-10.11$ & $-31.17$ & $-10.39$ & $96.12$ & $31.17$ \\
+ & CDQNRP & $-6.82$ & $-24.41$ & $-40.19$ & $-3.11$ & \fst{$11.46$} & \fst{$6.96$} \\
+ & DQN    & $-11.02$ & $-9.47$ & $-32.81$ & $-8.43$ & $47.76$ & $13.79$ \\
+ & MACD   & $-4.29$ & $-1.78$ & $-8.71$ & $-1.19$ & $79.64$ & $16.35$ \\
+ & IV     & $-27.42$ & $-12.27$ & $-36.01$ & $-9.00$ & $99.67$ & $33.96$ \\
+ & EarnHFT & \fst{$4.52$} & \fst{$2.92$} & \fst{$14.30$} & \fst{$1.78$} & $67.92$ & $13.89$ \\
 \midrule
-\multirow{13}{*}{ETH}
- & DRA     & $-46.56$ & $-0.77$ & $-1.44$ & $-10.86$ & $6.18$ & $63.20$ \\
- & PPO     & $-46.08$ & $-0.74$ & $-1.39$ & $-10.68$ & $6.23$ & $63.01$ \\
- & CRP     & $-46.06$ & $-0.95$ & $-1.69$ & $-11.36$ & $5.88$ & $62.96$ \\
- & DQN     & $-73.15$ & $-3.94$ & $-3.88$ & $-27.31$ & $3.89$ & $75.48$ \\
- & MACD    & $-73.93$ & $-2.78$ & $-3.49$ & $-21.52$ & $5.30$ & $80.85$ \\
- & IV      & $-50.53$ & $-1.04$ & $-1.82$ & $-12.29$ & $5.87$ & $63.87$ \\
- & EDQN    & $-46.00$ & $-0.73$ & $-1.39$ & $-10.65$ & $6.23$ & $62.96$ \\
- & SUNRISE & $-81.22$ & $-4.45$ & $-4.57$ & $-23.85$ & $4.48$ & $83.36$ \\
- & RAQR    & $-5.94$ & $-4.10$ & $-2.65$ & $-13.75$ & \fst{$0.21$} & \fst{$6.08$} \\
- & WINOW   & $26.36$ & $1.06$ & $3.55$ & $6.98$ & $6.59$ & $37.55$ \\
- & EHFT    & \fst{$48.72$} & $1.49$ & $3.33$ & $10.66$ & $5.65$ & $48.33$ \\
- & MHFT    & $-75.16$ & $-2.21$ & $-3.26$ & $-15.37$ & $6.32$ & $81.79$ \\
- & FineFT  & $39.05$ & \fst{$1.74$} & \fst{$5.78$} & \fst{$14.45$} & $2.96$ & $16.96$ \\
+\multirow{7}{*}{GALA}
+ & DRA    & $10.56$ & $4.77$ & $41.63$ & $4.44$ & $92.43$ & $10.60$ \\
+ & PPO    & $10.56$ & $4.77$ & $41.63$ & $4.44$ & $92.43$ & $10.60$ \\
+ & CDQNRP & $5.22$ & $4.51$ & $39.42$ & $4.16$ & $47.27$ & $5.41$ \\
+ & DQN    & $2.94$ & $3.55$ & $32.02$ & $2.66$ & \fst{$34.08$} & \fst{$3.78$} \\
+ & MACD   & $2.37$ & $1.79$ & $11.45$ & $1.22$ & $62.89$ & $9.84$ \\
+ & IV     & $13.95$ & $6.74$ & $55.67$ & $5.41$ & $81.79$ & $9.91$ \\
+ & EarnHFT & \fst{$19.41$} & \fst{$9.77$} & \fst{$79.08$} & \fst{$7.79$} & $74.94$ & $9.26$ \\
 \bottomrule
 \end{tabular}}
 \end{table}
 
-\subsection{Effectiveness of the Selective-Update Ensemble}
-\label{sec:fineft_ablation_su}
+\begin{figure}[!htb]
+\centering
+\includegraphics[width=0.6\textwidth]{Chapter4/earnhft_trading_example}
+\caption[An EarnHFT trading episode.]{A representative EarnHFT trading episode on ETH. The agent opens and closes a position within roughly thirty seconds, capturing a movement that registers only as a pullback at the minute scale.}
+\label{fig:earnhft_trading}
+\end{figure}
 
-\tref{tab:fineft_su} compares FineFT's pre-trained selective update (FP) against three alternatives on five dynamics: EHFT-style prioritised episode selection (EP), random dataset selection (ER), and FineFT without pre-training (FwoP). Convergence steps (CS) measure efficiency and reward sum (RS) the converged performance. FP converges in the fewest steps while achieving the strongest converged performance, confirming that sharing transitions selectively---rather than training each learner independently---improves both efficiency and the performance ceiling.
+\subsection{Effectiveness of the Hierarchical Framework}
+\label{sec:earnhft_hierarchy}
+
+\fref{fig:earnhft_hierarchy} compares the router with each specialist in its pool. Bull and rally specialists tend to buy and hold and excel in the bull market (GALA); sideways specialists trade little and hold; pullback and bear specialists tend to close positions and excel in the bear market (ETH). The router combines these strengths and delivers the best profit on all four datasets. \fref{fig:earnhft_selection} shows the router's selection distribution: high-volatility datasets (ETH, GALA) elicit a balanced distribution across trends because dynamics change frequently, whereas low-volatility datasets (BTCT, BTCU) concentrate on a few dynamics.
+
+\begin{figure}[!htb]
+\centering
+\includegraphics[width=0.85\textwidth]{Chapter4/earnhft_hierarchical_comparison}
+\caption[Router versus specialist pool.]{Comparison of the router against each specialist in its pool across the four datasets. Each specialist excels in the trend it was trained for; the router combines their strengths.}
+\label{fig:earnhft_hierarchy}
+\end{figure}
+
+\begin{figure}[!htb]
+\centering
+\includegraphics[width=0.7\textwidth]{Chapter4/earnhft_trend_selection}
+\caption[Router selection distribution.]{Distribution of the router's specialist selections across the four datasets. High-volatility markets elicit a more balanced distribution; low-volatility markets concentrate on fewer dynamics.}
+\label{fig:earnhft_selection}
+\end{figure}
+
+\subsection{Effectiveness of the Optimal Action Value}
+\label{sec:earnhft_ablation}
+
+\tref{tab:earnhft_ablation} ablates the optimal value supervisor (OS) and optimal actor (OA) on ETH and GALA, measuring the steps to converge (CS), the converged reward sum (RS), and the average holding length (AHL). On GALA, adding OS to plain DDQN reduces the steps to converge to about 15\% while raising the return; OA further raises the return at the cost of more steps. On ETH, a bull market, OS does not reduce CS but substantially raises the return. OS is the more effective component because it supplies information about all actions and adapts as the policy changes, whereas OA only provides demonstrations.
 
 \begin{table}[!htb]
-\setlength\tabcolsep{6pt}
+\setlength\tabcolsep{5pt}
 \centering
-\caption[Ablation of the selective-update ensemble.]{Convergence and performance of the selective-update ensemble against three training schemes on five dynamics: EHFT prioritised episode selection (EP), random selection (ER), FineFT with pre-training (FP), and without pre-training (FwoP). CS is convergence steps; RS is reward sum. \fst{Pink} and \snd{green} mark the best and second-best.}
-\label{tab:fineft_su}
-\begin{tabular}{cccc cccc}
+\caption[Ablation of the Q-teacher.]{Ablation of the optimal value supervisor (OS) and optimal actor (OA) on ETH and GALA. CS is steps to converge, RS the converged reward sum, AHL the average holding length.}
+\label{tab:earnhft_ablation}
+\begin{tabular}{cccccccc}
 \toprule
-Method & CS$\downarrow$ & Dyn & RS$\uparrow$ & Method & CS$\downarrow$ & Dyn & RS$\uparrow$ \\
+\multirow{2}{*}{OA} & \multirow{2}{*}{OS} & \multicolumn{3}{c}{GALA} & \multicolumn{3}{c}{ETH} \\
+\cmidrule(lr){3-5}\cmidrule(lr){6-8}
+ & & CS$\downarrow$ & RS$\uparrow$ & AHL & CS$\downarrow$ & RS$\uparrow$ & AHL \\
 \midrule
-\multirow{5}{*}{EP} & \multirow{5}{*}{\snd{$71712$}} & 1 & $2.86$ & \multirow{5}{*}{ER} & \multirow{5}{*}{$112320$} & 1 & $2.86$ \\
- & & 2 & $2.14$ & & & 2 & $2.15$ \\
- & & 3 & $0.50$ & & & 3 & $0.48$ \\
- & & 4 & $4.98$ & & & 4 & $4.98$ \\
- & & 5 & $9.14$ & & & 5 & $9.14$ \\
-\midrule
-\multirow{5}{*}{FP} & \multirow{5}{*}{\fst{$66528$}} & 1 & \fst{$45.29$} & \multirow{5}{*}{FwoP} & \multirow{5}{*}{$79488$} & 1 & \snd{$37.34$} \\
- & & 2 & \fst{$18.21$} & & & 2 & \snd{$16.18$} \\
- & & 3 & \snd{$4.77$} & & & 3 & \fst{$6.39$} \\
- & & 4 & \snd{$24.48$} & & & 4 & \fst{$25.53$} \\
- & & 5 & \snd{$40.23$} & & & 5 & \fst{$46.17$} \\
+\checkmark & \checkmark & $78848$ & \fst{$4.43$} & $448$ & $102400$ & \fst{$12.32$} & $81.3$ \\
+\checkmark &            & $102400$ & $0.24$ & $38.7$ & $102400$ & $-1.40$ & $4.15$ \\
+           & \checkmark & \fst{$4608$} & $2.89$ & $147$ & \fst{$30720$} & $4.87$ & $35.8$ \\
+           &            & $30720$ & $-0.01$ & $284$ & $30720$ & $-29.6$ & $39.1$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsection{Effectiveness of Risk-Aware Routing and Case Studies}
-\label{sec:fineft_ablation_routing}
-
-The risk-aware router is the source of FineFT's risk reduction. As the test period drifts further from the training and validation windows, the proportion of conservative-policy selections rises, and FineFT outperforms both its no-risk-threshold variant and any single specialist. Two case studies make the mechanism concrete. First, \fref{fig:fineft_update} visualises the relationship between the updated learner index and the market dynamic during selective update: distinct learners specialise in distinct dynamics---some in sudden surges, others in sharp drops, others in minor fluctuations---confirming that the ensemble does not learn randomly but partitions the market. Second, \fref{fig:fineft_vae} shows the VAE proactively closing a BNB position upon encountering unfamiliar states, despite no closing signal from the selected specialist, avoiding the loss from a subsequent decline that coincided with an on-chain upgrade event.
-
-\begin{figure}[!htb]
-\centering
-\includegraphics[width=\textwidth]{Chapter4/fineft_update_index}
-\caption[Specialisation under selective update.]{BTC return curve coloured by the index of the learner updated under selective update. The horizontal axis is time and the vertical axis cumulative return; distinct learners (colours) specialise in distinct market dynamics rather than learning interchangeably.}
-\label{fig:fineft_update}
-\end{figure}
-
-\begin{figure}[!htb]
-\centering
-\includegraphics[width=\textwidth]{Chapter4/fineft_vae_triggered}
-\caption[Out-of-distribution detection with a VAE.]{VAE-driven risk control on BNB. The horizontal axis is time and the vertical axis price; red and green markers are FineFT's sell and buy signals. The position is closed proactively when the rolling-window VAE loss is high, ahead of a subsequent decline.}
-\label{fig:fineft_vae}
-\end{figure}
-
 %----------------------------------------------------------------------------------------
-\section{Summary}
-\label{sec:fineft_summary}
+\section{Chapter Summary}
+\label{sec:earnhft_summary}
 
-This chapter presented FineFT, a three-stage risk-aware ensemble RL framework for leveraged futures. It trains diverse specialists efficiently through a selective-update rule that exploits an ensemble TD-error matrix and, as a by-product, segments the market automatically; it equips each specialist with a VAE that captures its capability boundary; and it routes between specialists and a conservative fallback by out-of-distribution detection. FineFT outperforms twelve baselines, reducing risk by more than 40\% relative to the runner-up while remaining the most profitable learned method. Relative to EarnHFT, FineFT advances the thesis on two fronts: it makes the agent aware of its competence, addressing the epistemic uncertainty that leverage renders fatal; and it replaces the learned router with a heuristic one driven by generative uncertainty estimates, decoupling selection from policy learning. The next chapter completes this trajectory, moving from execution to signal generation and removing the selector from the learning reward altogether.
+This chapter presented EarnHFT, a three-stage hierarchical RL framework that makes high-frequency trading tractable for RL. It addresses the extreme horizon with a dynamic-programming Q-teacher that accelerates and provably preserves the convergence of second-level training, and it addresses regime non-stationarity by training a pool of trend specialists and a minute-level router that switches among them. EarnHFT outperforms six strong baselines across four markets, exceeding the runner-up by at least 30\% in profitability, and the ablations confirm the contribution of each component. In the language of the thesis, EarnHFT is the first instantiation of the decompose--specialise--select pattern, and its selector---a DDQN router trained by reinforcement learning against the trading reward---is the most tightly coupled of the three. The next chapter retains the pattern but confronts a setting, leveraged futures, where the router must additionally manage risk and the agent must become aware of its own competence boundary.
