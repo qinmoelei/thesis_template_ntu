@@ -170,7 +170,7 @@
 % To remove backref of references (the page number associated with the references where it is cited), please remove "backref=page".
 \usepackage[pdfpagemode={UseOutlines},bookmarks=true,bookmarksopen=true,
    bookmarksopenlevel=1,bookmarksnumbered=true,hypertexnames=true,
-   colorlinks,linkcolor={blue},citecolor={blue},urlcolor={black},pdfauthor={Molei Qin},pdftitle={Reinforcement Learning for Quantitative Trading: From High-Frequency Execution to Formulaic Alpha Mining},
+   colorlinks,linkcolor={blue},citecolor={blue},urlcolor={black},pdfauthor={Molei Qin},pdftitle={Reinforcement Learning for Quantitative Trading: From High-Frequency Trading to Formulaic Alpha Mining},
    pdfstartview={FitV},unicode,breaklinks=true,plainpages=false,backref=page]{hyperref}
 
 \pdfstringdefDisableCommands{
@@ -203,7 +203,7 @@
 
 %Your thesis title - this is used in the title and abstract
 %-------------------------------------------------
-\thesistitle{Reinforcement Learning for Quantitative Trading: From High-Frequency Execution to Formulaic Alpha Mining} %
+\thesistitle{Reinforcement Learning for Quantitative Trading: From High-Frequency Trading to Formulaic Alpha Mining} %
 %-------------------------------------------------
 \supervisor{Prof.\ \textsc{Bo An}} % You supervisor's name - this is used in the title page
 %-------------------------------------------------
@@ -275,8 +275,7 @@
   \vfill
   \href{http://www.ntu.edu.sg}{\includegraphics[width=230pt]{Styles/ntu_logo}}\\%[2cm]
   \vfill
-  \textbf{\Large \authornames}\\[0.3cm]%
-  {\large Matriculation Number: G2304936H}\\[0.3cm]%
+  \textbf{\Large \authornames}\\%[1.2cm]
   {\large \deptname}\\%[1.2cm] % University name
   \vfill
   \setstretch{1.2}
@@ -521,14 +520,14 @@
 
 
 \newcommand\authorpublications[1]{
-	\newcommand\secname{List of Author's Awards, Patents, and Publications}
+	\newcommand\secname{List of Author's Publications}
 %	\addcontentsline{toc}{section}{\secname}
 	\markboth{\secname}{\secname}
 	\btypeout{\secname}
 	\addtotoc{\secname}
 	\thispagestyle{plain}
 	\vspace*{1.5cm}
-	\begin{center}{\flushleft\Huge{\textbf{\secname\footnote[1]{The superscript $^*$ indicates joint first authors}}} \par}\end{center}
+	\begin{center}{\flushleft\Huge{\textbf{\secname}} \par}\end{center}
 	{\normalsize #1}
 	\vfil\vfil\null
 	\cleardoublepage

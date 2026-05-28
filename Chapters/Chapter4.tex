@@ -108,12 +108,46 @@ where $L_{td}=\left(r+\gamma\max Q_t(\chi',a,\cdot;\theta_i')-Q_t(\chi,p,a;\thet
 \end{algorithmic}
 \end{algorithm}
 
-The Q-teacher does not compromise correctness. Treating the supervised update as an operator $H$ on action values, one can show $H$ is a contraction in the sup-norm whose fixed point is $Q^\star$, so the learned value still converges to the optimum; the statement and proof are deferred to \aref{app:earnhft_proof}.
+The Q-teacher does not compromise correctness. Treating the supervised update as an operator $H$ on action values, one can show $H$ is a contraction in the sup-norm whose fixed point is $Q^\star$, so the learned value still converges to the optimum. Following the convergence argument for Q-learning~\cite{jaakkola1993convergence}, it suffices to verify these two properties of $H$. The operator combines the usual Bellman backup with the supervision term and is
+\begin{equation}
+\label{eq:earnhft_operator}
+Hq(x,a) = \lambda\sum_{y\in X}T(y\mid x,a)\bigl(r(x,a,y)+\gamma\max_b q(y,b)\bigr) + (1-\lambda)\Bigl(\tfrac{1}{|A|}\textstyle\sum_{a\in A}q(x,a)+Re(x,a)\Bigr),
+\end{equation}
+where the supervision residual is $Re(x,a) = q^\star(x,a) - \tfrac{1}{|A|}\sum_{a\in A}q^\star(x,a)$ and $\lambda\in(0,1]$ weights the Bellman backup against the supervision term.
 
-\begin{theorem}[Convergence of the supervised update, informal]
+\begin{proposition}[$Q^\star$ is a fixed point of $H$]
+\label{prop:earnhft_fixed}
+The optimal action value $q^\star$ satisfies $Hq^\star = q^\star$.
+\end{proposition}
+\begin{proof}
+Substituting $q^\star$ into \eqref{eq:earnhft_operator} and using the Bellman optimality equation $q^\star(x,a)=\sum_y T(y\mid x,a)(r(x,a,y)+\gamma\max_b q^\star(y,b))$ for the first term and the definition of $Re$ for the second,
+\begin{align*}
+Hq^\star(x,a) &= \lambda\, q^\star(x,a) + (1-\lambda)\Bigl(\tfrac{1}{|A|}\textstyle\sum_a q^\star(x,a) + q^\star(x,a) - \tfrac{1}{|A|}\textstyle\sum_a q^\star(x,a)\Bigr) \\
+&= \lambda\, q^\star(x,a) + (1-\lambda)\, q^\star(x,a) = q^\star(x,a). \qedhere
+\end{align*}
+\end{proof}
+
+\begin{proposition}[Contraction in the sup-norm]
+\label{prop:earnhft_contraction}
+For any action values $q_1,q_2$, $\|Hq_1-Hq_2\|_\infty \le k\,\|q_1-q_2\|_\infty$ with $k=1-(1-\lambda)\gamma<1$.
+\end{proposition}
+\begin{proof}
+The supervision residual $Re(x,a)$ depends only on $q^\star$ and not on the argument of $H$, so it cancels in the difference $Hq_1-Hq_2$. Bounding the $\max$ operator by $|\max_b q_1(y,b)-\max_b q_2(y,b)|\le\max_b|q_1(y,b)-q_2(y,b)|$,
+\begin{align*}
+\|Hq_1-Hq_2\|_\infty
+&\le \lambda\gamma\,\|q_1-q_2\|_\infty + (1-\lambda)\,\|q_1-q_2\|_\infty \\
+&= \bigl(1-(1-\lambda)\gamma\bigr)\|q_1-q_2\|_\infty.
+\end{align*}
+Since $\gamma\in(0,1]$ and $\lambda\in(0,1]$, the factor $k=1-(1-\lambda)\gamma<1$.
+\end{proof}
+
+\begin{theorem}[Convergence of the supervised update]
 \label{thm:earnhft_convergence}
 Under a finite MDP, the action value learned with the optimal-value-supervisor update of \eqref{eq:earnhft_loss} converges to the optimal action value $Q^\star$.
 \end{theorem}
+\begin{proof}
+Propositions~\ref{prop:earnhft_fixed} and~\ref{prop:earnhft_contraction} show that $H$ is a sup-norm contraction with unique fixed point $Q^\star$. By the stochastic-approximation argument of~\cite{jaakkola1993convergence}, the iterates therefore converge almost surely to $Q^\star$.
+\end{proof}
 
 \subsection{Stage II: Construction of the Agent Pool}
 \label{sec:earnhft_stage2}
@@ -297,8 +331,15 @@ Market & Model & TR$\uparrow$ & ASR$\uparrow$ & ACR$\uparrow$ & ASoR$\uparrow$ &
 \end{tabular}
 \end{table}
 
+\subsection{Trading Behaviour and Computational Cost}
+\label{sec:earnhft_behaviour}
+
+The trading behaviour of EarnHFT varies with the underlying market in a manner consistent with the unit cost of each asset and the stability of its trend. On the two Bitcoin datasets (BTCT and BTCU), the high unit price makes each round trip relatively expensive in dollar terms, and the agent trades less frequently and holds positions only when the price excursion is comfortably larger than the round-trip commission. On ETH, where the trend reverses sharply within the test window, the agent trades much more often to capture the short pullbacks that the minute-level router exposes. On GALA, which trends upward through most of the test period without major reversals, the agent holds positions for long stretches and lets the trend do the work. In aggregate, EarnHFT trades less frequently in stable bull markets and more frequently in volatile or bear markets---behaviour that matches what a discretionary high-frequency trader would do, but emerges from the hierarchy without any hand-coded regime detector.
+
+\paragraph{Computational cost.} All experiments run on a single NVIDIA RTX~4090 GPU. The full pipeline---building the Q-teacher table, training the $200$ specialist agents under the four preference values $\beta\in\{-90,-10,30,100\}$, segmenting and labelling the validation set, selecting the pool, and training the minute-level DDQN router---completes in approximately ten hours for each market, dominated by stage II specialist training. At inference time the only on-policy work is one specialist DDQN forward pass per second and one router forward pass per minute, both of which fit comfortably inside the second-level decision budget on a commodity GPU.
+
 %----------------------------------------------------------------------------------------
 \section{Chapter Summary}
 \label{sec:earnhft_summary}
 
-This chapter presented EarnHFT, a three-stage hierarchical RL framework that makes high-frequency trading tractable for RL. It addresses the extreme horizon with a dynamic-programming Q-teacher that accelerates and provably preserves the convergence of second-level training, and it addresses regime non-stationarity by training a pool of trend specialists and a minute-level router that switches among them. EarnHFT outperforms six strong baselines across four markets, exceeding the runner-up by at least 30\% in profitability, and the ablations confirm the contribution of each component. In the language of the thesis, EarnHFT is the first instantiation of the decompose--specialise--select pattern, and its selector---a DDQN router trained by reinforcement learning against the trading reward---is the most tightly coupled of the three. The next chapter retains the pattern but confronts a setting, leveraged futures, where the router must additionally manage risk and the agent must become aware of its own competence boundary.
+This chapter presented EarnHFT, a three-stage hierarchical RL framework that makes high-frequency trading tractable for RL. It addresses the extreme horizon with a dynamic-programming Q-teacher that, under the exogenous-price assumption of \sref{sec:earnhft_stage1} and a fixed historical training window, preserves the optimal Bellman fixed point of the supervised update while accelerating learning empirically; and it addresses regime non-stationarity by training a pool of trend specialists and a minute-level router that switches among them. EarnHFT outperforms six strong baselines across four markets, exceeding the runner-up by at least 30\% in profitability, and the ablations confirm the contribution of each component. In the language of the thesis, EarnHFT is the first instantiation of the decompose--specialise--select pattern, and its selector---a DDQN router trained by reinforcement learning against the trading reward---is the most tightly coupled of the three. The next chapter retains the pattern but confronts a setting, leveraged futures, where the router must additionally manage risk and the agent must become aware of its own competence boundary.

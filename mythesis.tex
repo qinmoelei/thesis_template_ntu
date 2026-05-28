@@ -105,7 +105,7 @@
 % 	DECLARATION PAGE
 % ----------------------------------------------------------------------------------------
 
-\thesisdeclareOriginality{I hereby certify that the work embodied in this thesis is the result of original research, is free of plagiarised materials, and has not been submitted for a higher degree to any other University or Institution.\par\medskip\noindent\textit{Disclosure on AI Use:} I declare that ChatGPT was utilised to enhance the clarity and readability of this thesis. Furthermore, I confirm that I have adhered to NTU's Policy on the Use of GenAI in Research. I have reviewed and edited the content as necessary after utilising this tool and accept full responsibility for the content of this thesis.}{May 2026}{Styles/Molei_Qin_signature.png}
+\thesisdeclareOriginality{I hereby certify that the work embodied in this thesis is the result of original research, is free of plagiarised materials, and has not been submitted for a higher degree to any other University or Institution.\par\bigskip\noindent\textbf{Disclosure on AI Use.} I declare that ChatGPT was utilised to enhance the clarity and readability of this thesis. I confirm that I have adhered to NTU's Policy on the Use of Generative AI in Research. I have reviewed and edited the content as necessary after using this tool and accept full responsibility for the content of this thesis.}{May 2026}{Styles/Molei_Qin_signature.png}
 
 \thesisdeclareSupervisor{I have reviewed the content and presentation style of this thesis and declare it is free of plagiarism and of sufficient grammatical clarity to be examined.  To the best of my knowledge, the research and writing are those of the candidate except as acknowledged in the Author Attribution Statement. I confirm that the investigations were conducted in accord with the ethics policies and integrity standards of Nanyang Technological University and that the research data are presented honestly and without prejudice.}{May 2026}{Styles/Bo_An_signature.jpg}
 
@@ -134,7 +134,7 @@
 		\item Shuo Sun and Xinrun Wang provided insightful comments and carefully revised the manuscript.
 	\end{itemize}
 
-	Chapter~\ref{ch:alphaqd} is based on M.~Qin et al., ``AlphaQD: Quality-Diversity Reinforcement Learning for Formulaic Alpha Mining,'' manuscript under review at \emph{ACM SIGKDD (KDD)}. I proposed the problem and the method, designed and conducted the experiments, and wrote the manuscript; the full co-author contribution list will be added upon acceptance.
+	Chapter~\ref{ch:alphaqd} is based on M.~Qin et al., ``AlphaQD: Quality-Diversity Reinforcement Learning for Formulaic Alpha Mining,'' manuscript under anonymous review at \emph{ACM SIGKDD (KDD)}. I proposed the problem and the method, designed and conducted the experiments, and wrote the manuscript. The co-author list is withheld here while the paper is under anonymous peer review; the full author list and per-author contribution statement will be supplied to the University in the final, post-publication version of this thesis.
 }{May 2026}{Styles/Molei_Qin_signature.png}
 
 % ----------------------------------------------------------------------------------------
@@ -167,18 +167,12 @@ Finally, but most importantly, I would like to thank my parents, my family and m
 %----------------------------------------------------------------------------------------
 
 \pagestyle{empty} % No headers or footers for the following pages
-\emph{``If I had one hour to save the world, I would spend 55 minutes defining the problem and only five minutes finding the solution."}
-
-\begin{flushright}
----Einstein, Albert
-\end{flushright}
-\null\vfill % Add some space to move the quote down the page a bit
-
+\null\vfill
 \begin{center}
-\large{To my dear family}
+\large To my family.
 \end{center}
-\vfill\vfill\null % Add some space at the bottom to position the quote just right
-\cleardoublepage % Start a new page and make the next page a right-hand (odd-numbered) page, producing a blank page if necessary
+\vfill\vfill\null
+\cleardoublepage % Start a new page and make the next page a right-hand (odd-numbered) page
 
 \pagestyle{fancy} % Return the page headers back to the "fancy" style
 \fancyhead{}   %clear all fields
@@ -198,11 +192,11 @@ Finally, but most importantly, I would like to thank my parents, my family and m
 
 With a global capital of over 90 trillion US dollars, financial markets attract the attention of innumerable investors around the world. Quantitative trading converts market data into trading decisions and is, at its core, a sequential decision-making problem under uncertainty, which makes reinforcement learning (RL) a natural modelling tool. Recently, RL has emerged as a promising direction for financial decision making owing to its ability to optimise a long-horizon return rather than a one-step prediction. However, financial markets violate the assumptions on which standard RL rests: they are non-stationary, their reward signals carry a low signal-to-noise ratio, the decision horizons can be extreme, and a single mistake can be financially catastrophic. Significant effort is therefore still required to close the gap between RL's promise and its real-world deployment in quantitative trading.
 
-This doctoral thesis is devoted to closing that gap by systematically studying what reinforcement learning can do for quantitative trading across the trading-frequency spectrum and from trade execution to signal generation. It is organised around three tasks: second-level high-frequency trading of a single spot asset, minute-level trading of leveraged cryptocurrency futures, and daily-frequency formulaic alpha mining over a full cross-section of equities. For each task, we identify the binding obstacle that prevents off-the-shelf RL from succeeding and propose a method that removes it.
+This doctoral thesis is devoted to closing that gap by systematically studying what reinforcement learning can do for quantitative trading. We sweep the trading-frequency spectrum, from second-level trading to daily signal generation. It is organised around three tasks: second-level high-frequency trading of a single spot asset, minute-level trading of leveraged cryptocurrency futures, and daily-frequency formulaic alpha mining over a full cross-section of equities. For each task, we identify the binding obstacle that prevents off-the-shelf RL from succeeding and propose a method that removes it.
 
-First, we study the problem of efficient and adaptive RL for high-frequency trading, where a single second-level agent evaluated over weeks faces a horizon on the order of one million steps and where rapid regime changes break any monolithic policy. We propose EarnHFT, a three-stage hierarchical RL framework including: (i)~a Q-teacher computed by dynamic programming over future prices, which is shown both theoretically and empirically to accelerate and provably preserve the convergence of second-level training; (ii)~a pool of trend-specialised agents trained under different preference parameters and selected by profitability; and (iii)~a minute-level router that dynamically picks a specialist from the pool as market conditions change. Extensive experiments on four cryptocurrency markets demonstrate that EarnHFT exceeds the strongest of six baselines by at least 30\% in profitability across all four datasets.
+First, we study the problem of efficient and adaptive RL for high-frequency trading, where a single second-level agent evaluated over weeks faces a horizon on the order of one million steps and where rapid regime changes break any monolithic policy. We propose EarnHFT, a three-stage hierarchical RL framework with three components: (i)~a Q-teacher computed by dynamic programming over future prices, which accelerates and stabilises second-level training while preserving the optimal Bellman fixed point of the supervised update; (ii)~a pool of trend-specialised agents trained under different preference parameters and selected by profitability; and (iii)~a minute-level router that picks a specialist from the pool as market conditions change. Extensive experiments on four cryptocurrency markets demonstrate that EarnHFT exceeds the strongest of six baselines by at least 30\% in profitability across all four datasets.
 
-We then investigate the problem of risk-aware ensemble RL for leveraged futures, where high leverage amplifies the aleatoric noise of the reward and where the absence of any awareness of capability boundary exposes existing methods to liquidation during black-swan events. We propose FineFT, a three-stage ensemble RL framework including: (i)~a selective-update rule, driven by an ensemble temporal-difference matrix, that trains diverse specialists efficiently and segments the market automatically; (ii)~variational autoencoders, one per market dynamic, that capture each specialist's capability boundary and detect out-of-distribution market states; and (iii)~a risk-aware heuristic router that routes between specialists and a conservative fallback by VAE losses on recent market states. Extensive experiments on four cryptocurrency futures markets demonstrate that FineFT reduces risk by more than 40\% relative to the runner-up among twelve baselines while remaining the most profitable learned method.
+We then investigate the problem of risk-aware ensemble RL for leveraged futures, where high leverage amplifies the aleatoric noise of the reward and where the absence of any awareness of capability boundary exposes existing methods to liquidation during black-swan events. We propose FineFT, a three-stage ensemble RL framework including: (i)~a selective-update rule, driven by an ensemble temporal-difference matrix, that trains diverse specialists efficiently and segments the market automatically; (ii)~variational autoencoders, one per market dynamic, that capture each specialist's capability boundary and detect out-of-distribution market states; and (iii)~a risk-aware heuristic router that routes between specialists and a conservative fallback by VAE losses on recent market states. Extensive experiments on four cryptocurrency futures markets demonstrate that FineFT reduces risk---measured by maximum drawdown---by more than 40\% relative to the runner-up among twelve baselines while remaining the most profitable learned method.
 
 Third, we turn from execution to signal generation and study the problem of formulaic alpha mining, where pool-based RL miners couple the per-alpha reward to an evolving pool---a boosting-style objective that trains the policy against a moving target and offers no a-priori generalisation guarantee. We propose AlphaQD, a three-stage quality-diversity RL method including: (i)~an efficient relational-graph GFlowNet generator trained by trajectory balance against an archive-independent terminal reward; (ii)~a Return-Source MAP-Elites archive whose behaviour descriptor is the normalised daily information-coefficient series of each formula, an empirical proxy for the formula's return source; and (iii)~a top-$k$ cell-selection rule that exports one high-quality representative per occupied cell as the deployed pool. Extensive experiments on full-market Chinese A-share and U.S.\ benchmarks demonstrate that AlphaQD lies in the leading signal-quality cluster on both markets and attains the highest annualised return and the strongest net Sharpe among learned formula-mining methods on A-shares, with the smallest seed-to-seed variance and the lowest turnover among learned pool-style methods.
 
@@ -339,7 +333,7 @@ Crypto      & Cryptocurrency\\
 \input{./Chapters/Chapter1} % Introduction
 \input{./Chapters/Chapter2} % Preliminaries
 \input{./Chapters/Chapter3} % Literature Review
-\part{Reinforcement Learning for Trade Execution}
+\part{Reinforcement Learning for Trading}
 \input{./Chapters/Chapter4} % EarnHFT: Hierarchical RL for High-Frequency Trading
 \input{./Chapters/Chapter5} % FineFT: Risk-Aware Ensemble RL for Futures Trading
 \part{Reinforcement Learning for Signal Generation}
@@ -352,15 +346,15 @@ Crypto      & Cryptocurrency\\
 %	THESIS CONTENT - APPENDICES
 %----------------------------------------------------------------------------------------
 
-\addtocontents{toc}{\vspace{0.8em}} % Add a gap in the Contents, for aesthetics
-
-\appendix % Cue to tell LaTeX that the following 'chapters' are Appendices
-
-% Include the appendices of the thesis as separate files from the Appendices folder
-% Uncomment the lines as you write the Appendices
-
-\input{./Appendices/AppendixA}
-%\input{./Appendices/AppendixB}
+% Following Sun and Haochong's NTU CCDS PhD theses in the AMI group, this thesis
+% has no separate appendix chapter: all proofs, generalisation properties, and
+% ablation grids are folded into the main chapters (see Chapter~\ref{ch:earnhft}
+% for the EarnHFT Q-teacher convergence, Chapter~\ref{ch:fineft} for the FineFT
+% selective-update convergence, and Chapter~\ref{ch:alphaqd} for the AlphaQD
+% generalisation properties and full ablation grid).
+%
+% \appendix
+% \input{./Appendices/AppendixA}
 
 \cleardoublepage    % start a new page
 

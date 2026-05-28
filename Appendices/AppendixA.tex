@@ -148,3 +148,61 @@ so $\mathrm{ICIR}(X_{\mathrm{ens}})=\mathbb{E}[X_{\mathrm{ens}}]/\sqrt{\Var(X_{\
 \end{proof}
 
 The bound rests on positive standalone edges, enforced by the positive-ICIR admission rule, and on controlled redundancy $\rho$, enforced by the bounded per-cell quota and the PCA descriptor; \sref{sec:alphaqd_diagnostics} reports an empirical pairwise correlation of $0.2478$. Theorem~\ref{app:thm_boost} shows that boosting-style fitting preserves neither premise, so no analogous bound is available for it.
+
+%----------------------------------------------------------------------------------------
+\section{Full AlphaQD Ablation Grid}
+\label{app:alphaqd_ablation}
+
+\tref{tab:app_ablation_full} reports the full $36$-configuration ablation grid summarised by the marginal means in \sref{sec:alphaqd_ablation}. All entries are evaluated on the A-share test window under the unified-ridge protocol with a single training seed and the canonical training budget ($2{,}000$ episodes). The only varied hyperparameters are descriptor dimension $d_b$, cell capacity $\kappa$, and reward temperature $\beta_q$. Within-grid noise (ICIR roughly $0.22$--$0.66$) is larger than the marginal-mean effects reported in \sref{sec:alphaqd_ablation}, so individual grid cells should be read as samples from the AlphaQD performance distribution rather than as separated comparisons.
+
+\begin{table}[!htb]
+\centering
+\caption[Full AlphaQD ablation grid.]{AlphaQD ablation: per-configuration metrics on the A-share panel under the unified-ridge protocol (single seed, test window). Columns are descriptor dimension $d_b$, cell capacity $\kappa$, reward temperature $\beta_q$, signal IC, ICIR, Spearman rank-IC, and net Sharpe.}
+\label{tab:app_ablation_full}
+\renewcommand{\arraystretch}{1.05}
+\footnotesize
+\begin{tabular}{ccccccc}
+\toprule
+$d_b$ & $\kappa$ & $\beta_q$ & IC & ICIR & RankIC & Sharpe \\
+\midrule
+$1$ & $1$ & $0.5$ & $0.0565$ & $0.455$ & $0.074$ & $0.322$ \\
+$1$ & $1$ & $1.0$ & $0.0584$ & $0.592$ & $0.097$ & $0.951$ \\
+$1$ & $1$ & $2.0$ & $0.0772$ & $0.647$ & $0.127$ & $1.027$ \\
+$1$ & $1$ & $5.0$ & $0.0328$ & $0.246$ & $0.045$ & $0.889$ \\
+$1$ & $3$ & $0.5$ & $0.0740$ & $0.542$ & $0.123$ & $1.186$ \\
+$1$ & $3$ & $1.0$ & $0.0577$ & $0.464$ & $0.094$ & $0.699$ \\
+$1$ & $3$ & $2.0$ & $0.0757$ & $0.630$ & $0.106$ & $0.540$ \\
+$1$ & $3$ & $5.0$ & $0.0760$ & $0.511$ & $0.127$ & $0.835$ \\
+$1$ & $5$ & $0.5$ & $0.0669$ & $0.493$ & $0.096$ & $0.833$ \\
+$1$ & $5$ & $1.0$ & $0.0658$ & $0.560$ & $0.100$ & $0.879$ \\
+$1$ & $5$ & $2.0$ & $0.0683$ & $0.664$ & $0.107$ & $1.010$ \\
+$1$ & $5$ & $5.0$ & $0.0486$ & $0.485$ & $0.077$ & $0.668$ \\
+\midrule
+$2$ & $1$ & $0.5$ & $0.0541$ & $0.461$ & $0.075$ & $0.874$ \\
+$2$ & $1$ & $1.0$ & $0.0258$ & $0.218$ & $0.040$ & $0.909$ \\
+$2$ & $1$ & $2.0$ & $0.0724$ & $0.662$ & $0.106$ & $1.175$ \\
+$2$ & $1$ & $5.0$ & $0.0760$ & $0.646$ & $0.096$ & $0.738$ \\
+$2$ & $3$ & $0.5$ & $0.0736$ & $0.537$ & $0.123$ & $0.955$ \\
+$2$ & $3$ & $1.0$ & $0.0432$ & $0.366$ & $0.047$ & $0.907$ \\
+$2$ & $3$ & $2.0$ & $0.0724$ & $0.541$ & $0.112$ & $0.718$ \\
+$2$ & $3$ & $5.0$ & $0.0712$ & $0.565$ & $0.113$ & $0.869$ \\
+$2$ & $5$ & $0.5$ & $0.0589$ & $0.529$ & $0.087$ & $0.976$ \\
+$2$ & $5$ & $1.0$ & $0.0793$ & $0.613$ & $0.122$ & $0.892$ \\
+$2$ & $5$ & $2.0$ & $0.0375$ & $0.511$ & $0.087$ & $1.005$ \\
+$2$ & $5$ & $5.0$ & $0.0734$ & $0.578$ & $0.123$ & $1.141$ \\
+\midrule
+$3$ & $1$ & $0.5$ & $0.0699$ & $0.505$ & $0.109$ & $0.991$ \\
+$3$ & $1$ & $1.0$ & $0.0318$ & $0.368$ & $0.058$ & $0.669$ \\
+$3$ & $1$ & $2.0$ & $0.0502$ & $0.516$ & $0.080$ & $0.644$ \\
+$3$ & $1$ & $5.0$ & $0.0669$ & $0.534$ & $0.083$ & $1.144$ \\
+$3$ & $3$ & $0.5$ & $0.0756$ & $0.525$ & $0.127$ & $1.040$ \\
+$3$ & $3$ & $1.0$ & $0.0603$ & $0.518$ & $0.078$ & $0.581$ \\
+$3$ & $3$ & $2.0$ & $0.0554$ & $0.616$ & $0.085$ & $0.957$ \\
+$3$ & $3$ & $5.0$ & $0.0355$ & $0.405$ & $0.048$ & $-0.008$ \\
+$3$ & $5$ & $0.5$ & $0.0314$ & $0.352$ & $0.031$ & $0.422$ \\
+$3$ & $5$ & $1.0$ & $0.0741$ & $0.562$ & $0.130$ & $1.025$ \\
+$3$ & $5$ & $2.0$ & $0.0494$ & $0.414$ & $0.087$ & $0.584$ \\
+$3$ & $5$ & $5.0$ & $0.0306$ & $0.342$ & $0.044$ & $0.847$ \\
+\bottomrule
+\end{tabular}
+\end{table}

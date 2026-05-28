@@ -9,11 +9,11 @@
 \section{Introduction}
 \label{sec:alphaqd_intro}
 
-The two preceding chapters made trading \emph{decisions}: an agent observed the market and chose how to adjust its position. This chapter changes the task. Rather than acting in the market, the agent must \emph{generate} the predictive signals from which a portfolio is later built. The signals are \emph{formulaic alphas}: short symbolic expressions---trees of arithmetic, cross-sectional, and time-series operators over a small vocabulary of price and volume features---whose cross-sectional value at each timestamp is treated as a forecast of future returns~\cite{kakushadze2016101}. A portfolio is assembled from a \emph{set} of such alphas.
+The two preceding chapters made trading \emph{decisions}: an agent observed the market and chose how to adjust its position. This chapter changes the task. Rather than acting in the market, the agent must \emph{generate} the predictive signals from which a portfolio is later built. The signals are \emph{formulaic alphas}: short symbolic expressions whose cross-sectional value at each timestamp is treated as a forecast of future returns~\cite{kakushadze2016101}. Each alpha is a tree of arithmetic, cross-sectional, and time-series operators over a small vocabulary of price and volume features. A portfolio is assembled from a \emph{set} of such alphas.
 
-Formulaic alphas remain the dominant signal-generation paradigm in low-frequency quantitative investment for two reasons that monolithic neural predictors do not satisfy: each formula is readable and auditable to risk committees and regulators, and a small set of complementary formulas degrades more gracefully than a single black box when the regime shifts. Automating their discovery, however, is a hard exploration problem under three simultaneous pressures: \emph{quality} (the supervisory signal is the information coefficient of a finished formula on noisy data, with a low signal-to-noise ratio relative to the legal expression space); \emph{diversity} (what is deployed is a set covering different return sources, so a high-quality duplicate is worthless); and \emph{generalisation} (the training window is bounded and the test market non-stationary).
+Formulaic alphas remain the dominant signal-generation paradigm in low-frequency quantitative investment for two reasons that monolithic neural predictors do not satisfy. First, each formula is readable and auditable to risk committees and regulators. Second, a small set of complementary formulas degrades more gracefully than a single black box when the regime shifts. Automating their discovery is, however, a hard exploration problem under three simultaneous pressures: \emph{quality} (the supervisory signal is the information coefficient of a finished formula on noisy data); \emph{diversity} (what is deployed is a set covering different return sources, so a high-quality duplicate is worthless); and \emph{generalisation} (the training window is bounded and the test market is non-stationary).
 
-\paragraph{Diagnosis.} The reinforcement-learning line descended from AlphaGen~\cite{yu2023alphagen} scores each new alpha by its marginal contribution to a running pool. This is structurally a boosting objective, and it has two pathologies, the third gap of \sref{sec:bg_gaps}. First, the reward changes every time the pool changes, so the policy is trained against a moving target---a severe problem for exploration, where the policy never sees a stable landscape long enough to commit to coverage. Second, residual-driven boosting carries no a-priori bound on the generalisation of the resulting ensemble: with a legal expression space exceeding $10^{20}$, the late-round residual maximiser is dominated by the search-space noise floor, and the retained set inherits no concentration guarantee tied to its size. \fref{fig:alphaqd_reward_drift} contrasts the pool-dependent AlphaGen reward with the static reward AlphaQD uses.
+\paragraph{Diagnosis.} The reinforcement-learning line descended from AlphaGen~\cite{yu2023alphagen} scores each new alpha by its marginal contribution to a running pool. This is structurally a boosting objective, and it has two pathologies, the third gap of \sref{sec:bg_gaps}. First, the reward changes every time the pool changes, so the policy is trained against a moving target. The policy never sees a stable landscape long enough to commit to coverage, which is especially damaging for exploration. Second, residual-driven boosting carries no a-priori bound on the generalisation of the resulting ensemble. The legal expression space exceeds $10^{20}$, so the late-round residual maximiser is dominated by the search-space noise floor, and the retained set inherits no concentration guarantee tied to its size. \fref{fig:alphaqd_reward_drift} contrasts the pool-dependent AlphaGen reward with the static reward AlphaQD uses.
 
 \begin{figure}[!htb]
 \centering
@@ -135,29 +135,83 @@ For each occupied cell, the representative is the elite with the highest trainin
 \section{Generalisation Properties}
 \label{sec:alphaqd_theory}
 
-The staging is not merely convenient; it is generalisation-favouring. This section states the central results; the full statements, assumptions, and proofs are collected in \aref{app:alphaqd_theory}. Two recurring assumptions are a sign-symmetric warm-up shape distribution (A1) and strictly positive ridge weights on retained orbit pairs (A2).
+The staging is not merely convenient; it is generalisation-favouring. This section gives the formal results, with proofs inline. Two recurring assumptions are stated by name. \textbf{(A1)} \emph{Sign-symmetric warm-up shape distribution}: the warm-up sample $\{\mathbf{r}(\alpha_i)\}_{i=1}^M$ has zero mean and its second moment equals that of its sign-augmented version $\{\mathbf{r}(\alpha_i),-\mathbf{r}(\alpha_i)\}$. A formula and its sign-flip are both legal under the same mask and produce IC series differing only by a global sign, so the warm-up buffer is approximately closed under negation. \textbf{(A2)} \emph{Positive ridge weights on retained orbit pairs}: the shared ridge combiner assigns strictly positive weight to both representatives of an orbit when both are exported, which holds in the empirical regime where $\ell_2$-regularised regression on positively-edged factors places weight on both inputs.
+
+\subsection{Decoupling Quality from Shape}
+\label{sec:alphaqd_decouple}
 
 The first result formalises why decoupling quality from the shape descriptor is sound.
+
 \begin{lemma}[Affine invariance of the shape descriptor]
 \label{lem:alphaqd_affine}
 For any candidate $\alpha$ and any positive affine transform $\mathbf{y}=a\,\mathbf{x}(\alpha)+b\mathbf{1}$ with $a>0$, the normalised shape vector built from $\mathbf{y}$ equals $\mathbf{r}(\alpha)$.
 \end{lemma}
-Thus the descriptor encodes only which dates were strong, with mean and scale absorbed into the quality score, so two alphas with the same temporal pattern but different overall edge occupy the same cell rather than leaking into different ones.
+\begin{proof}
+The mean satisfies $\overline{\mathbf{y}}=a\,\overline{\mathbf{x}(\alpha)}+b$, so $\mathbf{y}-\overline{\mathbf{y}}\mathbf{1}=a(\mathbf{x}(\alpha)-\overline{\mathbf{x}(\alpha)}\mathbf{1})$, and normalising by the $\ell_2$ norm cancels $a>0$, giving $\mathbf{r}(\alpha)$.
+\end{proof}
 
-The second result is the structural reason the static reward survives even archive-aware exploration.
+Thus the descriptor encodes only which dates were strong; the mean and scale are absorbed into the quality score. Two alphas with the same temporal pattern but different overall edge occupy the same cell rather than leaking into different ones.
+
+\subsection{Reward Stationarity}
+\label{sec:alphaqd_stationary}
+
+The second result is the structural reason the static reward survives even archive-aware exploration extensions.
+
 \begin{theorem}[Stationary conditional reward]
 \label{thm:alphaqd_stationary}
-Let the per-alpha reward be $R_q(\alpha)=\exp(\beta_q\,\mathrm{ICIR}(\alpha))$. For any fixed target orbit $\mathcal{O}^\star$ and any kernel $K$ independent of the archive state and training step, the conditional reward $R_{\mathcal{O}^\star}(\alpha)=R_q(\alpha)\,K(\mathcal{O}(c(\alpha)),\mathcal{O}^\star)$ is a stationary terminal reward. A scheduler that varies $\mathcal{O}^\star$ across episodes changes the distribution over conditions but never the reward function attached to any single condition.
+Let the per-alpha reward be $R_q(\alpha)=\exp(\beta_q\,\mathrm{ICIR}(\alpha))$. For any fixed target orbit $\mathcal{O}^\star$ and any kernel $K:\mathcal{O}\times\mathcal{O}\to\mathbb{R}_{\ge 0}$ independent of the archive state and training step, the conditional reward $R_{\mathcal{O}^\star}(\alpha)=R_q(\alpha)\,K(\mathcal{O}(c(\alpha)),\mathcal{O}^\star)$ is a stationary terminal reward.
 \end{theorem}
+\begin{proof}
+For each fixed $\mathcal{O}^\star$, $R_{\mathcal{O}^\star}(\cdot)$ depends on $\alpha$ only through $\mathrm{ICIR}(\alpha)$ on the fixed training window and through the fixed PCA basis and bin edges entering $c(\cdot)$. The kernel $K$ is fixed and $\mathcal{O}^\star$ is a parameter, not a function of training-time state. The reward therefore has no time-dependent component. A scheduler that varies $\mathcal{O}^\star$ across episodes changes only the per-episode prior over conditions, never the conditional reward itself.
+\end{proof}
 
-The third result contrasts the search complexity of AlphaQD with boosting.
+The implementation reported here uses the unconditional reward ($K\equiv 1$), so the property holds a fortiori. The conditional form documents compatibility with future descriptor-biased exploration extensions.
+
+\subsection{Search Complexity and the Boosting Counter-Example}
+\label{sec:alphaqd_complexity}
+
+The next two results contrast AlphaQD's quality-diversity ensemble with boosting-style residual fitting.
+
+\begin{theorem}[Residual-edge noise floor]
+\label{thm:alphaqd_boost}
+Let $\mathcal{F}=\{\alpha_1,\dots,\alpha_M\}$ be a finite candidate set. After $t-1$ boosting rounds with residual $r_{t-1}$, the empirical residual-edge maximiser is $\alpha_t=\argmax_{\alpha\in\mathcal{F}}\widehat{\langle\alpha,r_{t-1}\rangle}$. Let $\gamma_t(\alpha)=\mathbb{E}[\langle\alpha,r_{t-1}\rangle]$ denote the population residual edge, $\Delta_t=\sup_\alpha\gamma_t(\alpha)$, and $\eta_M=\sigma\sqrt{2\log(2M/\delta)/n_{\mathrm{eff}}}$ a sub-Gaussian deviation. Then with probability at least $1-\delta$, $\gamma_t(\alpha_t)\ge\Delta_t-2\eta_M$. When $\Delta_t\le 2\eta_M$, the bound is non-positive.
+\end{theorem}
+\begin{proof}
+Uniform sub-Gaussian concentration on the finite class $\mathcal{F}$ gives $\sup_\alpha|\hat\gamma_t(\alpha)-\gamma_t(\alpha)|\le\eta_M$ with probability at least $1-\delta$. Writing $\alpha_t^\star=\argmax_\alpha\gamma_t(\alpha)$, $\gamma_t(\alpha_t)\ge\hat\gamma_t(\alpha_t)-\eta_M\ge\hat\gamma_t(\alpha_t^\star)-\eta_M\ge\gamma_t(\alpha_t^\star)-2\eta_M=\Delta_t-2\eta_M$, where the middle step uses the empirical optimality of $\alpha_t$.
+\end{proof}
+
+With $|\mathcal{F}|>10^{20}$ and $n_{\mathrm{eff}}$ bounded by the training-window days, the late-round residual winner is governed by the noise floor $\eta_M$ rather than by population signal.
+
 \begin{theorem}[Search-complexity contrast]
 \label{thm:alphaqd_complexity}
-A $K$-step boosting procedure over a candidate set of size $M$ has hypothesis-class complexity scaling as $\mathcal{C}_{\mathrm{boost},K}=\sqrt{K\log M/n_{\mathrm{eff}}}$, while a quality-diversity rule that maps candidates to at most $G$ occupied cells and exports one representative per cell has complexity scaling as $\mathcal{C}_{\mathrm{QD},K}=\sqrt{K\log(G/K)/n_{\mathrm{eff}}}$. For $G\ll M$, $\mathcal{C}_{\mathrm{QD},K}\ll\mathcal{C}_{\mathrm{boost},K}$.
+A $K$-step boosting procedure over $\mathcal{F}$ with $|\mathcal{F}|=M$ has an ordered-sequence hypothesis class of size at most $M^K$, with finite-class complexity $\mathcal{C}_{\mathrm{boost},K}=\sqrt{K\log M/n_{\mathrm{eff}}}$. A quality-diversity rule mapping candidates to at most $G$ occupied cells and exporting one representative per cell has $K$-subset class of size at most $\binom{G}{K}$, with complexity $\mathcal{C}_{\mathrm{QD},K}=\sqrt{K\log(G/K)/n_{\mathrm{eff}}}$. For $G\ll M$, $\mathcal{C}_{\mathrm{QD},K}\ll\mathcal{C}_{\mathrm{boost},K}$.
 \end{theorem}
+\begin{proof}
+The finite-class generalisation bound scales as $\sqrt{\log|\mathcal{H}|/n_{\mathrm{eff}}}$. Substituting $|\mathcal{H}_{\mathrm{boost},K}|\le M^K$ gives $\log|\mathcal{H}_{\mathrm{boost},K}|\le K\log M$. Substituting $|\mathcal{H}_{\mathrm{QD},K}|\le\binom{G}{K}$ and $\log\binom{G}{K}\le K\log(eG/K)$ gives the QD scaling.
+\end{proof}
+
 In the reported grid $G\le 100$ while $|\mathcal{A}|>10^{20}$, so the gap spans many orders of magnitude.
 
+\subsection{Per-Cell Selection Bias}
+\label{sec:alphaqd_selection}
+
+When a cell aggregates several candidates and the elite is selected by maximum empirical ICIR, the chosen elite's empirical ICIR is upward-biased relative to its population value---the formula-mining analogue of a multiple-testing winner's curse. The bounded per-cell quota controls this bias.
+
+\begin{theorem}[Per-cell selection bias under a bounded quota]
+\label{thm:alphaqd_selection}
+Fix an occupied cell holding at most $\kappa$ admitted elites at selection time, each with population quality $\theta_i$ and training-window estimate $\hat\theta_i=\theta_i+\varepsilon_i$ with sub-Gaussian $\varepsilon_i$ of effective sample size $n_{\mathrm{eff}}$. With probability at least $1-\delta$, the selection bias of the per-cell representative on raw ICIR satisfies $\max_{i\le\kappa}(\hat\theta_i-\theta_i)\le\sigma\sqrt{2\log(\kappa/\delta)/n_{\mathrm{eff}}}$. If the ranking uses the PFS-augmented score that averages the ICIR with $m$ independent perturbations, $\sigma$ is replaced by $\sigma/\sqrt{1+m}$.
+\end{theorem}
+\begin{proof}
+A union bound on the $\kappa$ sub-Gaussian tails gives $\mathbb{P}(\max_{i\le\kappa}\varepsilon_i>t)\le\kappa\exp(-n_{\mathrm{eff}}t^2/(2\sigma^2))$; setting the right-hand side to $\delta$ yields $t=\sigma\sqrt{2\log(\kappa/\delta)/n_{\mathrm{eff}}}$. Averaging $1+m$ independent sub-Gaussian estimates with parameter $\sigma$ produces a sub-Gaussian estimate with parameter $\sigma/\sqrt{1+m}$.
+\end{proof}
+
+Under the canonical $\kappa=3$, $\delta=0.05$ the bound is $\approx 2.86\,\sigma/\sqrt{n_{\mathrm{eff}}}$. The $m=5$ perturbations of PFS tighten it by $\sqrt{6}$ when the PFS-augmented score decides the ranking.
+
+\subsection{Ensemble ICIR Lower Bound}
+\label{sec:alphaqd_ensemble}
+
 The final result lower-bounds the quality of the exported ensemble.
+
 \begin{theorem}[Ensemble ICIR lower bound]
 \label{thm:alphaqd_ensemble}
 If the export retains $K$ positive-ICIR elites with daily IC variables $X_1,\dots,X_K$ satisfying $\mathbb{E}[X_i]\ge\mu_{\min}>0$, $\Var(X_i)\le\sigma^2$, and $\corr(X_i,X_j)\le\rho$, then the equal-weight ensemble $X_{\mathrm{ens}}=\frac{1}{K}\sum_i X_i$ obeys
@@ -166,7 +220,15 @@ If the export retains $K$ positive-ICIR elites with daily IC variables $X_1,\dot
 \mathrm{ICIR}(X_{\mathrm{ens}}) \ge \frac{\mu_{\min}\sqrt{K}}{\sigma\sqrt{1+(K-1)\rho}}.
 \end{equation}
 \end{theorem}
-The bound rests on two premises that AlphaQD supplies by construction: the positive-ICIR admission rule guarantees $\mu_i>0$, and the bounded per-cell quota with the PCA descriptor controls $\rho$ by spreading elites across cells (\sref{sec:alphaqd_diagnostics} reports an empirical pairwise correlation of $0.2478$). Boosting-style fitting preserves neither premise, so no analogous bound is available for it.
+\begin{proof}
+By linearity, $\mathbb{E}[X_{\mathrm{ens}}]\ge\mu_{\min}$. For the variance,
+\[
+\Var(X_{\mathrm{ens}}) = \tfrac{1}{K^2}\textstyle\sum_i\Var(X_i) + \tfrac{1}{K^2}\sum_{i\ne j}\Cov(X_i,X_j) \le \tfrac{\sigma^2}{K^2}\bigl[K+K(K-1)\rho\bigr] = \tfrac{\sigma^2(1+(K-1)\rho)}{K},
+\]
+so $\mathrm{ICIR}(X_{\mathrm{ens}})=\mathbb{E}[X_{\mathrm{ens}}]/\sqrt{\Var(X_{\mathrm{ens}})}\ge\mu_{\min}\sqrt{K}/(\sigma\sqrt{1+(K-1)\rho})$.
+\end{proof}
+
+The bound rests on two premises that AlphaQD supplies by construction. The positive-ICIR admission rule guarantees $\mu_i>0$. The bounded per-cell quota together with the PCA descriptor controls $\rho$ by spreading elites across cells; \sref{sec:alphaqd_diagnostics} reports an empirical pairwise correlation of $0.2478$. Theorem~\ref{thm:alphaqd_boost} shows that boosting-style fitting preserves neither premise, so no analogous bound is available for it.
 
 %----------------------------------------------------------------------------------------
 \section{Experimental Setup}
@@ -231,7 +293,7 @@ Ours & \textbf{AlphaQD} & \trd{$0.0655$} & \trd{$0.551$} & $-0.010$ & \snd{$2.17
 \end{tabular}}
 \end{table}
 
-\paragraph{A-share findings.} On the A-share panel, AlphaQD attains the highest annualised return and the highest RankIC of any method, the second-highest IC (behind GP-without-filter), and the second-highest Sharpe (behind only the fixed Alpha101 catalogue), while showing the smallest seed-to-seed standard deviation on Sharpe, annualised return, and RankIC within the top quality cluster. That cluster---GP-without-filter, AlphaForge, AlphaSAGE, and AlphaQD---has statistically indistinguishable mean ICIRs, but the three competitors do not convert signal quality into stable portfolio performance to the same extent: GP-without-filter and AlphaForge carry seed-level Sharpe deviations larger than their means, so any single deployment is essentially a coin flip; AlphaSAGE is stable but with annualised return roughly ten points below AlphaQD and turnover 46\% higher. Among learned pool-style baselines AlphaQD also has the lowest turnover. Its gains therefore come from converting signal quality into portfolio performance reliably, not from out-signalling the field. \fref{fig:alphaqd_nav} plots the cumulative net NAV of the five learned pool-style methods.
+\paragraph{A-share findings.} On the A-share panel, AlphaQD attains the highest annualised return and the highest RankIC of any method. It is second on IC (behind GP-without-filter) and second on Sharpe (behind only the fixed Alpha101 catalogue). Within the top quality cluster it also shows the smallest seed-to-seed standard deviation on Sharpe, annualised return, and RankIC. That cluster comprises GP-without-filter, AlphaForge, AlphaSAGE, and AlphaQD, whose mean ICIRs are statistically indistinguishable. The three competitors, however, do not convert signal quality into stable portfolio performance to the same extent. GP-without-filter and AlphaForge carry seed-level Sharpe deviations larger than their means, so any single deployment is essentially a coin flip; AlphaSAGE is stable but with annualised return roughly ten points below AlphaQD and turnover 46\% higher. Among learned pool-style baselines, AlphaQD also has the lowest turnover. Its gains therefore come from converting signal quality into portfolio performance reliably, not from out-signalling the field. \fref{fig:alphaqd_nav} plots the cumulative net NAV of the five learned pool-style methods.
 
 \begin{figure}[!htb]
 \centering
@@ -240,7 +302,7 @@ Ours & \textbf{AlphaQD} & \trd{$0.0655$} & \trd{$0.551$} & $-0.010$ & \snd{$2.17
 \label{fig:alphaqd_nav}
 \end{figure}
 
-\paragraph{U.S.\ findings.} On the U.S.\ panel the signal-quality columns (IC, ICIR, RankIC) are the credible discriminators: RankIC clusters around zero and Sharpe-style numbers around two for all baselines, reflecting market beta in the 2023--2026 window rather than alpha-driven return. AlphaQD ranks third on both IC and ICIR while again showing the smallest seed deviation on every IC-family metric and the lowest turnover among learned-search methods. Critically, the IC magnitude on the U.S.\ panel (around $0.066$) matches the A-share magnitude (around $0.067$), so the method ordering is preserved across two dissimilar markets---a cross-market stability that the boosting-style baselines do not exhibit (for example, AlphaQCM moves from $0.021$ on A-shares to $0.049$ on the U.S.\ panel).
+\paragraph{U.S.\ findings.} On the U.S.\ panel the signal-quality columns (IC, ICIR, RankIC) are the credible discriminators. RankIC clusters around zero and Sharpe-style numbers around two for all baselines, reflecting market beta in the 2023--2026 window rather than alpha-driven return. AlphaQD ranks third on both IC and ICIR. It again shows the smallest seed deviation on every IC-family metric and the lowest turnover among learned-search methods. Critically, the IC magnitude on the U.S.\ panel (around $0.066$) matches the A-share magnitude (around $0.067$). The method ordering is therefore preserved across two dissimilar markets, a cross-market stability that the boosting-style baselines do not exhibit. AlphaQCM, for instance, moves from $0.021$ on A-shares to $0.049$ on the U.S.\ panel.
 
 \subsection{Archive Diagnostics}
 \label{sec:alphaqd_diagnostics}
@@ -257,7 +319,61 @@ On a representative training archive, AlphaQD occupies $97$ of $100$ behaviour c
 \subsection{Ablations}
 \label{sec:alphaqd_ablation}
 
-A grid over behaviour-descriptor dimension $d_b\in\{1,2,3\}$, per-cell capacity $\kappa\in\{1,3,5\}$, and reward temperature $\beta_q\in\{0.5,1,2,5\}$ confirms the design choices. Marginal ICIR declines gently from $d_b=1$ to $d_b=3$, consistent with a higher-dimensional descriptor spreading candidates over more cells; the canonical $d_b=2$ sits in the favourable region while preserving an interpretable two-axis archive. Capacity $\kappa\ge 3$ is preferred over $\kappa=1$, supporting the in-cell Pareto front over a single elite. The reward temperature is non-monotone, peaking at $\beta_q=2$, consistent with the boundary between coverage-preserving and quality-concentrating sampling. Full ablation tables are given in \aref{app:alphaqd_theory}.
+A grid over behaviour-descriptor dimension $d_b\in\{1,2,3\}$, per-cell capacity $\kappa\in\{1,3,5\}$, and reward temperature $\beta_q\in\{0.5,1,2,5\}$ confirms the design choices. Marginal ICIR declines gently from $d_b=1$ to $d_b=3$, consistent with a higher-dimensional descriptor spreading candidates over more cells; the canonical $d_b=2$ sits in the favourable region while preserving an interpretable two-axis archive. Capacity $\kappa\ge 3$ is preferred over $\kappa=1$, supporting the in-cell Pareto front over a single elite. The reward temperature is non-monotone, peaking at $\beta_q=2$, consistent with the boundary between coverage-preserving and quality-concentrating sampling. The full $36$-configuration grid is reported in \tref{tab:alphaqd_ablation_full}; within-grid noise (ICIR roughly $0.22$--$0.66$ across cells) is larger than the marginal-mean effects, so individual grid cells should be read as samples from the AlphaQD performance distribution rather than as separated comparisons.
+
+\begin{table}[!htb]
+\centering
+\caption[Full AlphaQD ablation grid.]{AlphaQD per-configuration ablation on the A-share panel under the unified-ridge protocol (single seed, test window). Columns are descriptor dimension $d_b$, cell capacity $\kappa$, reward temperature $\beta_q$, signal IC, ICIR, Spearman rank-IC, and net Sharpe.}
+\label{tab:alphaqd_ablation_full}
+\renewcommand{\arraystretch}{1.05}
+\footnotesize
+\begin{tabular}{ccccccc}
+\toprule
+$d_b$ & $\kappa$ & $\beta_q$ & IC & ICIR & RankIC & Sharpe \\
+\midrule
+$1$ & $1$ & $0.5$ & $0.0565$ & $0.455$ & $0.074$ & $0.322$ \\
+$1$ & $1$ & $1.0$ & $0.0584$ & $0.592$ & $0.097$ & $0.951$ \\
+$1$ & $1$ & $2.0$ & $0.0772$ & $0.647$ & $0.127$ & $1.027$ \\
+$1$ & $1$ & $5.0$ & $0.0328$ & $0.246$ & $0.045$ & $0.889$ \\
+$1$ & $3$ & $0.5$ & $0.0740$ & $0.542$ & $0.123$ & $1.186$ \\
+$1$ & $3$ & $1.0$ & $0.0577$ & $0.464$ & $0.094$ & $0.699$ \\
+$1$ & $3$ & $2.0$ & $0.0757$ & $0.630$ & $0.106$ & $0.540$ \\
+$1$ & $3$ & $5.0$ & $0.0760$ & $0.511$ & $0.127$ & $0.835$ \\
+$1$ & $5$ & $0.5$ & $0.0669$ & $0.493$ & $0.096$ & $0.833$ \\
+$1$ & $5$ & $1.0$ & $0.0658$ & $0.560$ & $0.100$ & $0.879$ \\
+$1$ & $5$ & $2.0$ & $0.0683$ & $0.664$ & $0.107$ & $1.010$ \\
+$1$ & $5$ & $5.0$ & $0.0486$ & $0.485$ & $0.077$ & $0.668$ \\
+\midrule
+$2$ & $1$ & $0.5$ & $0.0541$ & $0.461$ & $0.075$ & $0.874$ \\
+$2$ & $1$ & $1.0$ & $0.0258$ & $0.218$ & $0.040$ & $0.909$ \\
+$2$ & $1$ & $2.0$ & $0.0724$ & $0.662$ & $0.106$ & $1.175$ \\
+$2$ & $1$ & $5.0$ & $0.0760$ & $0.646$ & $0.096$ & $0.738$ \\
+$2$ & $3$ & $0.5$ & $0.0736$ & $0.537$ & $0.123$ & $0.955$ \\
+$2$ & $3$ & $1.0$ & $0.0432$ & $0.366$ & $0.047$ & $0.907$ \\
+$2$ & $3$ & $2.0$ & $0.0724$ & $0.541$ & $0.112$ & $0.718$ \\
+$2$ & $3$ & $5.0$ & $0.0712$ & $0.565$ & $0.113$ & $0.869$ \\
+$2$ & $5$ & $0.5$ & $0.0589$ & $0.529$ & $0.087$ & $0.976$ \\
+$2$ & $5$ & $1.0$ & $0.0793$ & $0.613$ & $0.122$ & $0.892$ \\
+$2$ & $5$ & $2.0$ & $0.0375$ & $0.511$ & $0.087$ & $1.005$ \\
+$2$ & $5$ & $5.0$ & $0.0734$ & $0.578$ & $0.123$ & $1.141$ \\
+\midrule
+$3$ & $1$ & $0.5$ & $0.0699$ & $0.505$ & $0.109$ & $0.991$ \\
+$3$ & $1$ & $1.0$ & $0.0318$ & $0.368$ & $0.058$ & $0.669$ \\
+$3$ & $1$ & $2.0$ & $0.0502$ & $0.516$ & $0.080$ & $0.644$ \\
+$3$ & $1$ & $5.0$ & $0.0669$ & $0.534$ & $0.083$ & $1.144$ \\
+$3$ & $3$ & $0.5$ & $0.0756$ & $0.525$ & $0.127$ & $1.040$ \\
+$3$ & $3$ & $1.0$ & $0.0603$ & $0.518$ & $0.078$ & $0.581$ \\
+$3$ & $3$ & $2.0$ & $0.0554$ & $0.616$ & $0.085$ & $0.957$ \\
+$3$ & $3$ & $5.0$ & $0.0355$ & $0.405$ & $0.048$ & $-0.008$ \\
+$3$ & $5$ & $0.5$ & $0.0314$ & $0.352$ & $0.031$ & $0.422$ \\
+$3$ & $5$ & $1.0$ & $0.0741$ & $0.562$ & $0.130$ & $1.025$ \\
+$3$ & $5$ & $2.0$ & $0.0494$ & $0.414$ & $0.087$ & $0.584$ \\
+$3$ & $5$ & $5.0$ & $0.0306$ & $0.342$ & $0.044$ & $0.847$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Computational cost.} A full training run of AlphaQD on the A-share panel---$2{,}000$ GFlowNet trajectory-balance episodes with mini-batch size $64$, archive maintenance, and PFS evaluation---completes in approximately five to six hours on a single NVIDIA RTX~4090 GPU. The dominant cost is the per-candidate back-test of the IC series on the full-market training window; archive insertion is $O(1)$ amortised under the per-cell quota and the PCA refit is incremental. At deployment the cost is negligible: the exported $K^\star=10$ alphas evaluate as fixed symbolic expressions, and the downstream ridge combiner is a closed-form linear operation re-fit only at rebalance dates.
 
 %----------------------------------------------------------------------------------------
 \section{Chapter Summary}
