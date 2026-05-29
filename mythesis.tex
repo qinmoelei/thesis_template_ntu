@@ -49,7 +49,7 @@
 %extra packages
 \usepackage{float}
 \usepackage{color,soul}               % highlighting text
-\usepackage{enumerate}
+%\usepackage{enumerate} % removed: clashes with enumitem (loaded above) and breaks \end{enumerate}
 \usepackage{Styles/mydefs}
 
 %---------------------------------------------------------------------------
@@ -110,7 +110,7 @@
 \thesisdeclareSupervisor{I have reviewed the content and presentation style of this thesis and declare it is free of plagiarism and of sufficient grammatical clarity to be examined.  To the best of my knowledge, the research and writing are those of the candidate except as acknowledged in the Author Attribution Statement. I confirm that the investigations were conducted in accord with the ethics policies and integrity standards of Nanyang Technological University and that the research data are presented honestly and without prejudice.}{May 2026}{Styles/Bo_An_signature.jpg}
 
 \thesisdeclareAuthorship{This thesis contains material from three research papers on which I am listed as the leading author. Two of these papers have been accepted and published at peer-reviewed international conferences; the third is currently under anonymous review.}
-{The technical chapters of this thesis are based on the following papers; the EarnHFT and FineFT author lists are given in full, while the AlphaQD co-author list is omitted because that paper is under anonymous review.
+{The technical chapters of this thesis are based on the following papers, with the author list and per-author contributions given in full for each.
 
 	Chapter~\ref{ch:earnhft} is published as M.~Qin, S.~Sun, W.~Zhang, H.~Xia, X.~Wang, and B.~An, ``EarnHFT: Efficient Hierarchical Reinforcement Learning for High Frequency Trading,'' in \emph{Proceedings of the AAAI Conference on Artificial Intelligence (AAAI'24)}, vol.~38, no.~13, pp.~14669--14676, 2024.
 
@@ -134,7 +134,15 @@
 		\item Shuo Sun and Xinrun Wang provided insightful comments and carefully revised the manuscript.
 	\end{itemize}
 
-	Chapter~\ref{ch:alphaqd} is based on M.~Qin et al., ``AlphaQD: Quality-Diversity Reinforcement Learning for Formulaic Alpha Mining,'' manuscript under anonymous review at \emph{ACM SIGKDD (KDD)}. I proposed the problem and the method, designed and conducted the experiments, and wrote the manuscript. The co-author list is withheld here while the paper is under anonymous peer review; the full author list and per-author contribution statement will be supplied to the University in the final, post-publication version of this thesis.
+	Chapter~\ref{ch:alphaqd} is based on M.~Qin, M.~Zhu, C.~Zong, and B.~An, ``AlphaQD: Quality-Diversity Reinforcement Learning for Formulaic Alpha Mining,'' a manuscript in preparation for submission to the \emph{ACM SIGKDD Conference on Knowledge Discovery and Data Mining (KDD'27, Cycle~1)}.
+
+	The contributions of the co-authors are as follows:
+	\begin{itemize}[topsep=1pt,itemsep=1pt,partopsep=1pt, parsep=1pt]
+		\item Prof.\ Bo~An proposed the project direction and revised the manuscript.
+		\item I proposed the problem and the method, designed and conducted the experiments, and wrote the manuscript.
+		\item Meiying Zhu ran the baseline experiments.
+		\item Chuqiao Zong helped with the implementation and the experiment scripts.
+	\end{itemize}
 }{May 2026}{Styles/Molei_Qin_signature.png}
 
 % ----------------------------------------------------------------------------------------
@@ -190,17 +198,17 @@ Finally, but most importantly, I would like to thank my parents, my family and m
 
 % 1. The Problem 2. The Issues 3. The Approach 4. The Results 5. The Experiments 6. The Applications
 
-With a global capital of over 90 trillion US dollars, financial markets attract the attention of innumerable investors around the world. Quantitative trading converts market data into trading decisions and is, at its core, a sequential decision-making problem under uncertainty, which makes reinforcement learning (RL) a natural modelling tool. Recently, RL has emerged as a promising direction for financial decision making owing to its ability to optimise a long-horizon return rather than a one-step prediction. However, financial markets violate the assumptions on which standard RL rests: they are non-stationary, their reward signals carry a low signal-to-noise ratio, the decision horizons can be extreme, and a single mistake can be financially catastrophic. Significant effort is therefore still required to close the gap between RL's promise and its real-world deployment in quantitative trading.
+With a global capital of over 90 trillion US dollars, financial markets attract the attention of innumerable investors around the world. Quantitative trading converts market data into trading decisions and is, at its core, a sequential decision-making problem under uncertainty, which makes reinforcement learning (RL) a natural modelling tool. Recently, RL has emerged as a promising direction for financial decision making owing to its ability to optimise a long-horizon return rather than a one-step prediction. However, financial markets violate the assumptions on which standard RL rests: they are non-stationary, their reward signals carry a low signal-to-noise ratio, the decision horizons can be extremely long, and a single mistake can be financially catastrophic. Significant effort is therefore still required to close the gap between RL's promise and its real-world deployment in quantitative trading.
 
 This doctoral thesis is devoted to closing that gap by systematically studying what reinforcement learning can do for quantitative trading. We sweep the trading-frequency spectrum, from second-level trading to daily signal generation. It is organised around three tasks: second-level high-frequency trading of a single spot asset, minute-level trading of leveraged cryptocurrency futures, and daily-frequency formulaic alpha mining over a full cross-section of equities. For each task, we identify the binding obstacle that prevents off-the-shelf RL from succeeding and propose a method that removes it.
 
 First, we study the problem of efficient and adaptive RL for high-frequency trading, where a single second-level agent evaluated over weeks faces a horizon on the order of one million steps and where rapid regime changes break any monolithic policy. We propose EarnHFT, a three-stage hierarchical RL framework with three components: (i)~a Q-teacher computed by dynamic programming over future prices, which accelerates and stabilises second-level training while preserving the optimal Bellman fixed point of the supervised update; (ii)~a pool of trend-specialised agents trained under different preference parameters and selected by profitability; and (iii)~a minute-level router that picks a specialist from the pool as market conditions change. Extensive experiments on four cryptocurrency markets demonstrate that EarnHFT exceeds the strongest of six baselines by at least 30\% in profitability across all four datasets.
 
-We then investigate the problem of risk-aware ensemble RL for leveraged futures, where high leverage amplifies the aleatoric noise of the reward and where the absence of any awareness of capability boundary exposes existing methods to liquidation during black-swan events. We propose FineFT, a three-stage ensemble RL framework including: (i)~a selective-update rule, driven by an ensemble temporal-difference matrix, that trains diverse specialists efficiently and segments the market automatically; (ii)~variational autoencoders, one per market dynamic, that capture each specialist's capability boundary and detect out-of-distribution market states; and (iii)~a risk-aware heuristic router that routes between specialists and a conservative fallback by VAE losses on recent market states. Extensive experiments on four cryptocurrency futures markets demonstrate that FineFT reduces risk---measured by maximum drawdown---by more than 40\% relative to the runner-up among twelve baselines while remaining the most profitable learned method.
+We then investigate the problem of risk-aware ensemble RL for leveraged futures, where high leverage amplifies the aleatoric noise of the reward and where the absence of any awareness of capability boundary exposes existing methods to liquidation during black-swan events. We propose FineFT, a three-stage ensemble RL framework including: (i)~a selective-update mechanism, driven by an ensemble temporal-difference matrix, that trains diverse specialists efficiently and segments the market automatically; (ii)~variational autoencoders, one per market dynamic, that capture each specialist's capability boundary and detect out-of-distribution market states; and (iii)~a risk-aware heuristic router that routes between specialists and a conservative fallback by VAE losses on recent market states. Extensive experiments on four cryptocurrency futures markets demonstrate that FineFT reduces risk---measured by maximum drawdown---by more than 40\% relative to the runner-up among twelve baselines while remaining the most profitable learned method.
 
 Third, we turn from execution to signal generation and study the problem of formulaic alpha mining, where pool-based RL miners couple the per-alpha reward to an evolving pool---a boosting-style objective that trains the policy against a moving target and offers no a-priori generalisation guarantee. We propose AlphaQD, a three-stage quality-diversity RL method including: (i)~an efficient relational-graph GFlowNet generator trained by trajectory balance against an archive-independent terminal reward; (ii)~a Return-Source MAP-Elites archive whose behaviour descriptor is the normalised daily information-coefficient series of each formula, an empirical proxy for the formula's return source; and (iii)~a top-$k$ cell-selection rule that exports one high-quality representative per occupied cell as the deployed pool. Extensive experiments on full-market Chinese A-share and U.S.\ benchmarks demonstrate that AlphaQD lies in the leading signal-quality cluster on both markets and attains the highest annualised return and the strongest net Sharpe among learned formula-mining methods on A-shares, with the smallest seed-to-seed variance and the lowest turnover among learned pool-style methods.
 
-Read together, the three works share a single methodological skeleton---decompose the non-stationary market into approximately stationary sub-problems, specialise a learner to each, and select among them through a selector---and trace a deliberate progression in how the selector is built: from a learned online RL router in EarnHFT, to a generative risk-aware heuristic router in FineFT, to a fully structural quality-diversity archive in AlphaQD that is kept entirely outside the learning reward. The thesis therefore offers both a set of state-of-the-art methods for distinct quantitative-trading tasks and a unifying perspective on how reinforcement learning should be structured for non-stationary financial markets.
+Read together, the three works share a single methodological skeleton---decompose the non-stationary market into approximately stationary sub-problems, specialise a learner to each, and aggregate the specialists through a mechanism suited to the task---and trace a deliberate progression in how that aggregation is performed and how far it is decoupled from the policy's learning reward: from a learned online RL router that selects a single specialist in EarnHFT, through a generative risk-aware heuristic router in FineFT, to a fully structural quality-diversity archive with a ridge combiner in AlphaQD that is kept entirely outside the learning reward. The thesis therefore offers both a set of state-of-the-art methods for distinct quantitative-trading tasks and a unifying perspective on how reinforcement learning should be structured for non-stationary financial markets.
 
 
 
@@ -364,7 +372,7 @@ Crypto      & Cryptocurrency\\
 
 \authorpublications{
 
-\noindent The following publications and manuscripts arose from the research conducted during this doctoral candidature. The candidate is the leading author of each. (The EarnHFT and FineFT author lists are given in full; AlphaQD is under anonymous review.)
+\noindent The following publications and manuscripts arose from the research conducted during this doctoral candidature. The candidate is the leading author of each.
 
 \section*{Conference Proceedings}
 
@@ -373,10 +381,10 @@ Crypto      & Cryptocurrency\\
   \item \textbf{Molei Qin}, Xinyu Cai, Yewen Li, Haochong Xia, Chuqiao Zong, Shuo Sun, Xinrun Wang, and Bo An, ``FineFT: Efficient and Risk-Aware Ensemble Reinforcement Learning for Futures Trading,'' in \emph{Proceedings of the 32nd ACM SIGKDD Conference on Knowledge Discovery and Data Mining (KDD)}, 2026. (Chapter~\ref{ch:fineft})
 \end{itemize}
 
-\section*{Manuscripts Under Review}
+\section*{Manuscripts in Preparation}
 
 \begin{itemize}
-  \item \textbf{Molei Qin} et al., ``AlphaQD: Quality-Diversity Reinforcement Learning for Formulaic Alpha Mining,'' submitted to \emph{ACM SIGKDD Conference on Knowledge Discovery and Data Mining (KDD)}. (Chapter~\ref{ch:alphaqd})
+  \item \textbf{Molei Qin}, Meiying Zhu, Chuqiao Zong, and Bo An, ``AlphaQD: Quality-Diversity Reinforcement Learning for Formulaic Alpha Mining,'' manuscript in preparation for submission to the \emph{ACM SIGKDD Conference on Knowledge Discovery and Data Mining (KDD'27, Cycle~1)}. (Chapter~\ref{ch:alphaqd})
 \end{itemize}
 
 }

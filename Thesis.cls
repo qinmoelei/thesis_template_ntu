@@ -454,7 +454,7 @@
 	\thispagestyle{empty}
 	\begin{spacing}{2}
 		\begin{center}\Large \underline{\bf Statement of Originality}\end{center}
-		{\textnormal{\large #1}}
+		{\normalfont\large #1\par}
 		\vspace{2.5cm}
 		\begin{center}
 			\makebox[4cm]{#2}  \hfill
@@ -476,7 +476,7 @@
 	\thispagestyle{empty}
 	\begin{spacing}{2}
 		\begin{center}\Large \underline{\bf Supervisor Declaration Statement}\end{center}
-		{\textnormal{\large #1}}
+		{\normalfont\large #1\par}
 		\vspace{2.5cm}
 		\begin{center}
 			\makebox[4cm]{#2}  \hfill
@@ -498,7 +498,7 @@
 	\thispagestyle{empty}
 	\begin{spacing}{2}
 		\begin{center}\Large \underline{\bf Authorship Attribution Statement}\end{center}
-		{\textnormal{\large #1}}
+		{\normalfont\large #1\par}
 	\end{spacing}
 	\begin{spacing}{2}
 		{\setstretch{1.0}#2}
