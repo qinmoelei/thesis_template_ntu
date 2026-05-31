@@ -224,7 +224,7 @@ ETH/USDT & Sideways & 210{,}241 & 22/01/01 & 24/01/01 \\
 
 \begin{table}[p]
 \centering
-\caption[FineFT main results.]{Performance comparison on four crypto futures markets against twelve baselines (four plain, two ensemble, one distributional, three hierarchical, two rule-based). Arrows indicate the preferred direction; \fst{pink} marks the best entry per market and metric. TR, AVOL, and MDD are in percent. RAQR's near-zero risk on DOT and ETH reflects negligible market participation.}
+\caption[FineFT main results.]{Performance comparison on four crypto futures markets against twelve baselines (four plain, two ensemble, one distributional, three hierarchical, two rule-based). Arrows indicate the preferred direction; the \fst{best} entry per market and metric is in bold (colour retained for screen reading). TR, AVOL, and MDD are in percent. RAQR's near-zero risk on DOT and ETH reflects negligible market participation.}
 \label{tab:fineft_main}
 \renewcommand{\arraystretch}{1.1}
 \footnotesize
@@ -304,7 +304,7 @@ Market & Model & TR$\uparrow$ & ASR$\uparrow$ & ACR$\uparrow$ & ASoR$\uparrow$ &
 \begin{table}[!htb]
 \setlength\tabcolsep{6pt}
 \centering
-\caption[Ablation of the selective-update ensemble.]{Convergence and performance of the selective-update ensemble against three training schemes on five dynamics: EHFT prioritised episode selection (EP), random selection (ER), FineFT with pre-training (FP), and without pre-training (FwoP). CS is convergence steps; RS is reward sum. \fst{Pink} and \snd{green} mark the best and second-best.}
+\caption[Ablation of the selective-update ensemble.]{Convergence and performance of the selective-update ensemble against three training schemes on five dynamics: EHFT prioritised episode selection (EP), random selection (ER), FineFT with pre-training (FP), and without pre-training (FwoP). CS is convergence steps; RS is reward sum. The \fst{best} and \snd{second-best} entries are marked in bold and underline respectively (colour retained for screen reading).}
 \label{tab:fineft_su}
 \begin{tabular}{cccc cccc}
 \toprule
@@ -352,7 +352,7 @@ The two hyperparameters that most directly shape FineFT's profit--risk trade-off
 \begin{table}[!htb]
 \setlength\tabcolsep{8pt}
 \centering
-\caption[FineFT hyperparameter sensitivity.]{Sensitivity of FineFT to the number of specialists and the drawdown threshold (DDT) of the conservative policy. The canonical configuration ($5$ agents, $5\%$ DDT) is the one reported in \tref{tab:fineft_main}; the other rows vary one axis at a time. TR is total return, SR is Sharpe ratio, MDD is maximum drawdown.}
+\caption[FineFT hyperparameter sensitivity.]{Sensitivity of FineFT to the number of specialists and the drawdown threshold (DDT) of the conservative policy. The canonical configuration ($5$ agents, $5\%$ DDT) is the one reported in \tref{tab:fineft_main}; the other rows vary one axis at a time. TR is total return, SR is Sharpe ratio, MDD is maximum drawdown. The \fst{best} entry per column is in bold (colour retained for screen reading).}
 \label{tab:fineft_sensitivity}
 \begin{tabular}{ccccc}
 \toprule
@@ -383,7 +383,7 @@ The main evaluation is confined to cryptocurrency futures, the setting for which
 \begin{table}[!htb]
 \setlength\tabcolsep{8pt}
 \centering
-\caption[FineFT generalisation to other asset classes.]{Generalisation of FineFT to a commodity future (corn) and an equity-index future (E-mini S\&P~500, ES), against a $5\times$ leveraged buy-and-hold benchmark and a plain DQN, on the daily test windows (about 2018--2022). TR is total return, SR the Sharpe ratio, MDD the maximum drawdown; TR and MDD are in percent. \fst{Pink} marks the best entry per market and metric.}
+\caption[FineFT generalisation to other asset classes.]{Generalisation of FineFT to a commodity future (corn) and an equity-index future (E-mini S\&P~500, ES), against a $5\times$ leveraged buy-and-hold benchmark and a plain DQN, on the daily test windows (about 2018--2022). TR is total return, SR the Sharpe ratio, MDD the maximum drawdown; TR and MDD are in percent. The \fst{best} entry per market and metric is in bold (colour retained for screen reading).}
 \label{tab:fineft_extended}
 \begin{tabular}{llccc}
 \toprule

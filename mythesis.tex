@@ -63,11 +63,16 @@
 \usepackage{makecell}      % multi-line table cells
 \usepackage{bm}            % bold math symbols
 \usepackage{threeparttable}% table notes
+\usepackage[normalem]{ulem}% underline/dotted-underline for ranks (normalem keeps \emph italic)
 
-% Ranking colours reused across the experimental tables.
-\newcommand{\fst}[1]{\textcolor[RGB]{255,0,185}{#1}}   % best
-\newcommand{\snd}[1]{\textcolor[RGB]{0,153,76}{#1}}    % second best
-\newcommand{\trd}[1]{\textcolor[RGB]{0,128,255}{#1}}   % third best
+% Ranking marks reused across the experimental tables. Each rank carries a
+% colour-independent channel (bold / underline / dotted underline) on top of
+% the colour, so best/second/third stay distinguishable in greyscale print and
+% to colour-blind readers. \boldmath bolds the math-mode digits inside the cells
+% (a plain \textbf would leave them unbolded).
+\newcommand{\fst}[1]{\textbf{\boldmath\textcolor[RGB]{255,0,185}{#1}}}   % best:   bold + pink
+\newcommand{\snd}[1]{\underline{\textcolor[RGB]{0,153,76}{#1}}}          % second: underline + green
+\newcommand{\trd}[1]{\dotuline{\textcolor[RGB]{0,128,255}{#1}}}          % third:  dotted underline + blue
 
 % Math operators used in the methods.
 \DeclareMathOperator*{\argmax}{arg\,max}
