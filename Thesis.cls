@@ -169,9 +169,15 @@
 % This only changes you PDF information. The thesis title and author name need further changes in \thesistile and \authors
 % To remove backref of references (the page number associated with the references where it is cited), please remove "backref=page".
 \usepackage[pdfpagemode={UseOutlines},bookmarks=true,bookmarksopen=true,
-   bookmarksopenlevel=1,bookmarksnumbered=true,hypertexnames=true,
+   bookmarksopenlevel=1,bookmarksdepth=2,bookmarksnumbered=true,hypertexnames=true,
    colorlinks,linkcolor={blue},citecolor={blue},urlcolor={black},pdfauthor={Molei Qin},pdftitle={Reinforcement Learning for Quantitative Trading: From High-Frequency Trading to Formulaic Alpha Mining},
-   pdfstartview={FitV},unicode,breaklinks=true,plainpages=false,backref=page]{hyperref}
+   pdflang={en},pdfstartview={FitV},unicode,breaklinks=true,plainpages=false,backref=page]{hyperref}
+
+% Black-link configuration for the printed/hardbound submission copy.
+% The coloured links above are intended for the screen version only; if the
+% college requires (or you prefer) links that are indistinguishable from body
+% text in the hard copy, uncomment the following line before compiling:
+%\hypersetup{colorlinks=true,linkcolor={black},citecolor={black},urlcolor={black}}
 
 \pdfstringdefDisableCommands{
    \let\\\space
@@ -215,9 +221,9 @@
 %-------------------------------------------------
 \addresses{} % Your address - this is not currently used anywhere in the template, cite it with \addressnames if you want it
 %-------------------------------------------------
-\subject{} % Your subject area - this is not currently used anywhere in the template, cite it with \subjectname if you want it
+\subject{PhD thesis, College of Computing and Data Science, Nanyang Technological University} % Your subject area - written into the PDF Subject metadata field by \maketitle, cite it with \subjectname if you want it
 %-------------------------------------------------
-\keywords{} % Keywords for your thesis - this is not currently used anywhere in the template, cite it with \keywordnames if you want it
+\keywords{reinforcement learning; quantitative trading; alpha mining} % Keywords for your thesis - written into the PDF Keywords metadata field by \maketitle, cite it with \keywordnames if you want it
 %-------------------------------------------------
 \university{\texorpdfstring{\href{https://www.ntu.edu.sg/} % Your university's URL
                 {Nanyang Technological University}} % Your university's name - this is currently used in the title page
@@ -280,7 +286,7 @@
   \vfill
   \setstretch{1.2}
   \large A thesis submitted to the Nanyang Technological University \\ in partial fulfillment of the requirements for the degree of\\ \degreename\\[1cm] % University requirement text
-  {\large\bf \the\year}\\[2cm] % Date
+  {\large\bf 2026}\\[2cm] % Date (year of submission; hard-coded so recompilation cannot silently change it)
   \end{center}
   \end{titlepage}
   \cleardoublepage
@@ -305,7 +311,7 @@
 			[1.2cm]
 			\setstretch{1.2}
 			\large A thesis submitted to the Nanyang Technological University \\ in partial fulfillment of the requirements for the degree of\\ \degreename\\[1cm] % University requirement text
-			{\large\bf \the\year}\\[2cm] % Date
+			{\large\bf 2026}\\[2cm] % Date (year of submission; hard-coded so recompilation cannot silently change it)
 		\end{center}
 	\end{titlepage}
 	\cleardoublepage
@@ -344,7 +350,7 @@
 
 %----------------------------------------------------------------------------------------
 \addtocounter{secnumdepth}{1}
-\setcounter{tocdepth}{6}
+\setcounter{tocdepth}{2}
 \newcounter{dummy}
 \newcommand\addtotoc[1]{
 \refstepcounter{dummy}

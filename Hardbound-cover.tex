@@ -32,16 +32,23 @@
 \newcommand*{\authors}[1]{\def\authornames{#1}}
 
 % ---- configure layout ----
-\usepackage[papersize={,297mm}, strictheight=false,topmargin=0mm, botmargin, flap=0mm, textwidth=210mm, spine=9mm, cropmarks, cropframe, croptitle=MAE thesis]{zwpagelayout}
+\usepackage[papersize={,297mm}, strictheight=false,topmargin=0mm, botmargin, flap=0mm, textwidth=210mm, spine=9mm, cropmarks, cropframe, croptitle=CCDS PhD thesis]{zwpagelayout}
 % \usepackage{rotating}
 \usepackage[counterclockwise]{rotating}
 
 \linespread{1}
 
 % ---- configure name -----
-\department{\Large School of Mechanical and Aerospace Engineering}
-\thesistitle{\LARGE The Greatest Thesis in the World}
-\authors{\Large Author Name}
+% Real thesis information. The year is hard-coded (do not use \the\year, which
+% would silently change on recompilation). Before hardbound printing, verify
+% the spine width setting above and the physical fit with the print shop.
+\department{\Large College of Computing and Data Science}
+\thesistitle{Reinforcement Learning for Quantitative Trading: From High-Frequency Trading to Formulaic Alpha Mining}
+\authors{\Large Qin Molei}
+% The picture environment on the cover page cannot break lines automatically,
+% so the title is split manually into two centred lines:
+\newcommand*{\ttitleA}{Reinforcement Learning for Quantitative Trading:}
+\newcommand*{\ttitleB}{From High-Frequency Trading to Formulaic Alpha Mining}
 
 \begin{document}
 \hbox to \textwidth{%
@@ -49,11 +56,13 @@
 \vbox to \textheight{\hsize \UserWidth \vfill \leavevmode}\hss
 
 %-------------------------- spine ------------------------------
+% The full title is long, so the spine is set in \large rather than \LARGE to
+% fit within the 297mm spine height.
 \vbox to \textheight{\hsize \CropSpine \vfill \centering
 \begin{sideways}
-\hspace{-0.5cm}\LARGE\ttitle
-\hspace{2cm}  \authornames{} 
-\hspace{3cm}{\Large \the\year}  
+\hspace{-0.5cm}\large\ttitle
+\hspace{1.5cm}  \authornames{}
+\hspace{1.5cm}{\Large 2026}
 \end{sideways}
 \vfill}\hss
 
@@ -63,10 +72,11 @@
 \begin{picture}(22,27)
 \put(4.5,18){\includegraphics[width=12.8cm]{Styles/ntu_logo.png}}
 % \put(8,15) {{\Large Nanyang Technological University}}
-\put((21cm-\widthof{\textbf{\Large\ttitle}})/2,14){{\Large\textbf{\ttitle}}}
+\put((21cm-\widthof{\textbf{\LARGE\ttitleA}})/2,14.5){{\LARGE\textbf{\ttitleA}}}
+\put((21cm-\widthof{\textbf{\LARGE\ttitleB}})/2,13.6){{\LARGE\textbf{\ttitleB}}}
 \put((21cm-\widthof{\textbf{\deptname{}}})/2,4) {\textbf{\deptname{}}}
 \put((21cm-\widthof{\textbf{\authornames{}}})/2,5) {\textbf{\authornames{}}}
-\put((21cm-\widthof{\textbf{\Large \the\year}})/2,3){\textbf{\Large \the\year}}
+\put((21cm-\widthof{\textbf{\Large 2026}})/2,3){\textbf{\Large 2026}}
 \end{picture}}\hss
 }% text
 

@@ -9,7 +9,7 @@
 \section{Introduction}
 \label{sec:earnhft_intro}
 
-High-frequency trading (HFT) uses computer algorithms to place and cancel orders at very short time scales, and accounts for a majority of volume in modern financial markets~\cite{ALMEIDA2023100785}. It is especially prevalent in the cryptocurrency market, whose round-the-clock trading removes overnight risk and whose dramatic price fluctuations create frequent short-lived opportunities. A profitable HFT strategy can outperform a low-frequency one, which is why it is pursued aggressively by quantitative traders.
+High-frequency trading (HFT) uses computer algorithms to place and cancel orders at very short time scales, and accounts for a majority of volume in modern financial markets~\cite{hhu032}. It is especially prevalent in the cryptocurrency market~\cite{ALMEIDA2023100785}, whose round-the-clock trading removes market-closure gaps and non-tradable periods---although positions held overnight remain fully exposed to price risk---and whose dramatic price fluctuations create frequent short-lived opportunities. A profitable HFT strategy can outperform a low-frequency one, which is why it is pursued aggressively by quantitative traders.
 
 Reinforcement learning has produced strong results on low-frequency tasks such as daily stock or futures trading~\cite{sun2022deepscalper,briola2021deep}, but these methods rarely survive the move to HFT, for two reasons identified in \sref{sec:bg_gaps} as Gap~I.
 
@@ -21,12 +21,12 @@ Reinforcement learning has produced strong results on low-frequency tasks such a
 This chapter presents EarnHFT, an \textbf{E}fficient hier\textbf{A}rchical \textbf{R}einforcement lear\textbf{N}ing method for \textbf{H}igh \textbf{F}requency \textbf{T}rading, whose three stages are summarised in \fref{fig:earnhft_pipeline}. The design follows the decompose--specialise--aggregate pattern of \sref{sec:intro_pattern}.
 
 \begin{enumerate}
-\item \textbf{Stage~I (Q-teacher).} We exploit a structural property of execution---that at second scale a single trader's orders do not move prices, so future prices are independent of the policy---to compute, by dynamic programming, the optimal action value for every state. Used as a regulariser and a demonstrator, this ``Q-teacher'' accelerates and stabilises second-level training.
+\item \textbf{Stage~I (Q-teacher).} We exploit a structural property of execution---that at second scale a single trader's orders do not move prices, so future prices are independent of the policy---to compute, by dynamic programming on the realised historical trajectory, the action value that is optimal in hindsight at every (timestamp, position) pair. Used as a regulariser and a demonstrator, this ``Q-teacher''---a hindsight dynamic-programming teacher---accelerates and stabilises second-level training.
 \item \textbf{Stage~II (specialist pool).} We train hundreds of agents under different market-trend preferences, segment and label the market without hyperparameter tuning, and select a small pool of the most profitable specialists.
 \item \textbf{Stage~III (router).} We train a minute-level router that dynamically picks a second-level specialist from the pool to maintain performance as the market changes.
 \end{enumerate}
 
-Across four cryptocurrency markets spanning bull, bear, and sideways conditions, EarnHFT outperforms six state-of-the-art baselines on six financial metrics, exceeding the runner-up by at least 30\% in profitability.
+Across four cryptocurrency markets spanning bull, bear, and sideways conditions and six state-of-the-art baselines, EarnHFT attains the highest total return on all four markets: on the two markets where the strongest baseline is profitable it exceeds the best baseline's total return by 39\% (GALA) and 110\% (BTC/TUSD), and it is the only profitable method on the remaining two. It also leads on the risk-adjusted metrics in three of the four markets.
 
 \begin{figure}[!htb]
 \centering
@@ -39,7 +39,15 @@ Across four cryptocurrency markets spanning bull, bear, and sideways conditions,
 \section{Problem Formulation}
 \label{sec:earnhft_formulation}
 
-The financial concepts---limit order book, OHLC, technical indicators, market order, position, and net value---are defined in \sref{sec:bg_instruments}. We restrict attention to a single asset with long-only positions, and the objective is to maximise net value $V_t=V_{ct}+H_t\, p_t^{b_1}$, where $V_{ct}$ is cash and $H_t$ the position valued at the best bid. The execution price of a market order walks the book, $E_t(M)=\sum_i (p_t^i\min(q_t^i,R_{i-1}))(1+\sigma)$, where $R_{i-1}$ is the residual quantity after level $i$ and $\sigma$ the commission rate.
+The financial concepts---limit order book, OHLC, technical indicators, market order, position, and net value---are defined in \sref{sec:bg_instruments}. We restrict attention to a single asset with long-only positions, and the objective is to maximise net value $V_t=V_{ct}+H_t\, p_t^{b_1}$, where $V_{ct}$ is cash and $H_t$ the position valued at the best bid. A market order that changes the position by $\Delta$ walks the book level by level, and $E_t(\Delta)$ denotes the resulting commission-inclusive cash flow---the signed cash amount of the trade, not an average execution price. A buy ($\Delta>0$) consumes the ask side,
+\[
+E_t(\Delta)=\sum_i \bigl(p_t^{a_i}\min(q_t^{a_i},R_{i-1})\bigr)(1+\sigma),
+\]
+whereas a sell ($\Delta<0$) consumes the bid side with the commission deducted from the proceeds,
+\[
+E_t(\Delta)=-\sum_i \bigl(p_t^{b_i}\min(q_t^{b_i},R_{i-1})\bigr)(1-\sigma),
+\]
+where $R_{i-1}$ is the quantity of $|\Delta|$ still unfilled after the first $i-1$ levels, $\sigma$ is the commission rate, and $E_t(0)=0$. Under this convention a buy is a positive cash outflow and a sell a negative one. Throughout this chapter, ``high-frequency trading'' refers to second-level position control executed with market orders in a replayed order book; limit-order placement and cancellation, queue position, latency, partial fills, and market impact---central concerns of industrial HFT---are outside the scope of this formulation, and the conclusions should not be extrapolated to HFT in that fuller sense.
 
 \subsection{A Hierarchical Markov Decision Process}
 \label{sec:earnhft_hmdp}
@@ -50,9 +58,11 @@ The two challenges of \sref{sec:earnhft_intro} have a common structural cause: m
 \mathrm{MDP}_l &= (S_l,A_l,P_l,R_l,\gamma_l,T_l).
 \end{align*}
 
-\paragraph{Low level (second scale).} The state $S_{lt}$ comprises a latent representation $y_{lt}$ of 54 micro-level technical indicators computed from a length-60 rolling window of second-level OHLC and LOB snapshots, together with the current position $H_t$. The action $a_{lt}$ is a target position chosen from a finite pool $\{0,\frac{H}{|A|-1},\dots,H\}$; if it differs from the current position, a market order is executed immediately. The reward $r_{lt}=H_{t+1}p_{t+1}^{b_1}-(H_t p_t^{b_1}+E_t(H_{t+1}-H_t))$ is the per-second change in net value.
+\paragraph{Low level (second scale).} The state $S_{lt}$ comprises a latent representation $y_{lt}$ of 54 micro-level technical indicators computed from a length-60 rolling window of second-level OHLC and LOB snapshots, together with the current position $H_t$. The indicators are formulaic transforms of the raw OHLC and LOB series in the sense of \sref{sec:bg_instruments}; the complete indicator list, the normalisation, and the encoder that produces the latent representation follow the original EarnHFT implementation and are not documented in the published sources, which we note as a reproducibility limitation. The action $a_{lt}$ is a target position chosen from a finite pool $\{0,\frac{H}{|A|-1},\dots,H\}$; if it differs from the current position, a market order is executed immediately. The reward $r_{lt}=H_{t+1}p_{t+1}^{b_1}-(H_t p_t^{b_1}+E_t(H_{t+1}-H_t))$ is the per-second change in net value.
 
-\paragraph{High level (minute scale).} The state $S_{ht}$ comprises a latent representation $y_{ht}$ of 19 macro-level indicators from a length-60 rolling window of minute-level OHLC, together with $H_t$. The action $a_{ht}$ selects an agent from the pre-trained pool $A_h$. The reward $r_{hT}=\sum_{t=T}^{T+\tau}r_{lt}$ is the net-value change accrued by the selected low-level agent over one minute. In summary, every minute the high-level router picks a low-level agent, which then adjusts its position every second; the goal is to find a set of specialists and a router that jointly maximise total profit.
+\paragraph{High level (minute scale).} The state $S_{ht}$ comprises a latent representation $y_{ht}$ of 19 macro-level indicators from a length-60 rolling window of minute-level OHLC, together with $H_t$. The action $a_{ht}$ selects an agent from the pre-trained pool $A_h$. The reward $r_{hT}=\sum_{t=T}^{T+\tau_m-1}r_{lt}$, where $\tau_m=60$ seconds is the length of one minute, is the net-value change accrued by the selected low-level agent over exactly the $\tau_m$ low-level steps of that minute. In summary, every minute the high-level router picks a low-level agent, which then adjusts its position every second; the goal is to find a set of specialists and a router maximising total profit, and training proceeds in stages---the specialists are trained first and frozen, and the router is trained afterwards over the frozen pool---rather than by joint optimisation.
+
+\paragraph{Options view and information timing.} Strictly speaking, the high level is a semi-Markov decision process~\cite{sutton1999between,pateria2021hierarchical}: each high-level action is a temporally extended option that hands control to the selected specialist for a fixed duration of $\tau_m$ low-level steps, and the high-level transition kernel is the $\tau_m$-step composition of the low-level dynamics under that specialist. The implementation uses the undiscounted within-option sum $r_{hT}$ above; under an explicitly discounted SMDP treatment the within-option return would be $\sum_{t=T}^{T+\tau_m-1}\gamma_l^{\,t-T}r_{lt}$ with effective high-level discount $\gamma_h=\gamma_l^{\tau_m}$. To rule out look-ahead, the rolling OHLC windows at both levels must be constructed only from bars that have already closed at decision time, excluding the bar currently forming; we adopt this convention throughout, so that no future information enters the state.
 
 %----------------------------------------------------------------------------------------
 \section{Method}
@@ -61,26 +71,26 @@ The two challenges of \sref{sec:earnhft_intro} have a common structural cause: m
 \subsection{Stage I: Efficient Reinforcement Learning with a Q-Teacher}
 \label{sec:earnhft_stage1}
 
-A long trajectory normally inflates the cost of RL. In the low-level MDP, however, prices are not influenced by the policy, so future prices are known in hindsight on historical data. This lets us construct the optimal action value $Q^\star$ by dynamic programming~\cite{sutton2018reinforcement} and use it to teach the agent, both as a value supervisor and as a demonstrator.
+A long trajectory normally inflates the cost of RL. In the low-level MDP, however, prices are not influenced by the policy, so future prices are known in hindsight on historical data. This lets us construct, by dynamic programming~\cite{sutton2018reinforcement}, a \emph{hindsight dynamic-programming teacher}: a table $Q^\star$ of action values that are optimal along the realised training trajectory, indexed by timestamp and position, and use it to teach the agent, both as a value supervisor and as a demonstrator. Three caveats delimit what this teacher is. First, it is a sample-path oracle---the optimal value on the one realised price path---not the optimal action value of the unknown stochastic market; we retain the symbol $Q^\star$ for continuity, but it should be read in this trajectory-conditioned sense. Second, its construction consumes future prices, which is legitimate only because the teacher is built and used exclusively during training on historical data; nothing of it is consulted at deployment. Third, the network state $(\chi,p)$ does not contain the timestamp, so two visits with identical features can receive different hindsight targets; the teacher is therefore used as a regulariser and a demonstrator rather than as a regression target to be fitted exactly, and demonstration-guided value learning of this kind follows the precedent of learning from demonstrations~\cite{hester2018dqfd}.
 
-\paragraph{Optimal value supervisor.} Because the position set is finite, the optimal action value can be computed backwards: from the last step, the value of each (position, action) pair is the immediate reward plus the best continuation value, as in Algorithm~\ref{alg:earnhft_qtable}. We add to the DDQN loss a supervision term that is the Kullback--Leibler divergence between the agent's action values and the optimal action values at the same state:
+\paragraph{Optimal value supervisor.} Because the position set is finite, the teacher values can be computed backwards: from the last step, the value of each (position, action) pair is the immediate reward plus the discounted best continuation value, as in Algorithm~\ref{alg:earnhft_qtable}. We add to the DDQN loss a supervision term, written in Kullback--Leibler form, between the agent's action values and the teacher's action values at the same state:
 \begin{equation}
 \label{eq:earnhft_loss}
-L(\theta_i) = L_{td} + \alpha\,\mathrm{KL}\!\left(Q_t(\chi,p,\cdot;\theta_i)\,\|\,Q^\star(\chi,p,\cdot)\right),
+L(\theta_i) = L_{td} + \alpha_{\mathrm{KL}}\,\mathrm{KL}\!\left(Q_t(\chi,p,\cdot;\theta_i)\,\|\,Q^\star(\chi,p,\cdot)\right),
 \end{equation}
-where $L_{td}=\left(r+\gamma\max Q_t(\chi',a,\cdot;\theta_i')-Q_t(\chi,p,a;\theta_i)\right)^2$ is the DDQN temporal-difference error, $\chi$ the latent representation, $p$ the position, and $\alpha$ a coefficient decaying over time. The supervision term lets the agent learn the relative advantage of all actions at a state without exploring them, accelerating training.
+where $L_{td}=\bigl(r+\gamma\,Q_t(\chi',a,b^\star;\theta_i')-Q_t(\chi,p,a;\theta_i)\bigr)^2$ with $b^\star=\argmax_{b}Q_t(\chi',a,b;\theta_i)$ is the double-DQN temporal-difference error---the online network selects the next action and the target network evaluates it---$\chi$ the latent representation, $p$ the position, and $\alpha_{\mathrm{KL}}$ a coefficient decaying over time. Strictly speaking, the Kullback--Leibler divergence is defined only between normalised probability distributions, which the raw action-value vectors in \eqref{eq:earnhft_loss} are not; the KL notation should thus be read as a distributional discrepancy penalty between the two action-value vectors. The published EarnHFT sources do not specify a normalisation for this term, and the convergence analysis below therefore works with the linear advantage-matching operator of \eqref{eq:earnhft_operator} rather than with the penalty in \eqref{eq:earnhft_loss} directly. The supervision term lets the agent learn the relative advantage of all actions at a state without exploring them, accelerating training.
 
 \begin{algorithm}[!htb]
-\caption{Construction of the Optimal Action Value}
+\caption{Construction of the Hindsight Teacher Values}
 \label{alg:earnhft_qtable}
 \begin{algorithmic}[1]
-\State \textbf{Input:} time series $\mathcal{D}$ of length $N$, commission rate $\delta$, action space $A$
-\State \textbf{Output:} table $Q^\star$ of optimal action values indexed by time, position, action
-\State Initialise $Q^\star$ with shape $(N,|A|,|A|)$ and all elements $0$.
+\State \textbf{Input:} time series $\mathcal{D}$ of length $N$, commission rate $\sigma$, action space $A$, discount factor $\gamma$
+\State \textbf{Output:} table $Q^\star$ of teacher action values indexed by time, position index, action index
+\State Initialise $Q^\star$ with shape $(N,|A|,|A|)$ and all elements $0$; let $\mathrm{pos}(i)=\frac{(i-1)\,H}{|A|-1}$ map index $i$ to its position size.
 \For{$t \gets N-1$ \textbf{to} $1$}
   \For{$p \gets 1$ \textbf{to} $|A|$}
     \For{$a \gets 1$ \textbf{to} $|A|$}
-      \State $Q^\star[t,p,a] \gets \max_{a'} Q^\star[t+1,a,a'] + a\,p_{t+1}^{b_1} - (p\,p_{t}^{b_1} + E_t(p-a))$
+      \State $Q^\star[t,p,a] \gets \gamma\max_{a'} Q^\star[t+1,a,a'] + \mathrm{pos}(a)\,p_{t+1}^{b_1} - \bigl(\mathrm{pos}(p)\,p_{t}^{b_1} + E_t(\mathrm{pos}(a)-\mathrm{pos}(p))\bigr)$
     \EndFor
   \EndFor
 \EndFor
@@ -88,65 +98,76 @@ where $L_{td}=\left(r+\gamma\max Q_t(\chi',a,\cdot;\theta_i')-Q_t(\chi,p,a;\thet
 \end{algorithmic}
 \end{algorithm}
 
+In Algorithm~\ref{alg:earnhft_qtable}, $p$ and $a$ are \emph{indices} into the position pool and $\mathrm{pos}(\cdot)$ converts an index into the corresponding holding, so the immediate reward is that of moving from position $\mathrm{pos}(p)$ to position $\mathrm{pos}(a)$; the execution cash flow $E_t(\mathrm{pos}(a)-\mathrm{pos}(p))$ applies the commission rate $\sigma$ on the appropriate side of the book as defined in \sref{sec:earnhft_formulation}. The continuation value is discounted by the same $\gamma$ that appears in the TD loss $L_{td}$; with $\gamma=1$ this reduces to the undiscounted finite-horizon recursion.
+
 \paragraph{Optimal actor.} Supervision alone is insufficient, because the optimal action value is conditioned on the current position: once the agent deviates from the optimal policy, the supervision target shifts, compounding the deviation. We therefore additionally train on transitions generated by the optimal policy itself---the action with the highest optimal value---which supplies demonstration experience and prevents the agent from settling in a local trap. Algorithm~\ref{alg:earnhft_efficient} collects experience from both the $\epsilon$-greedy policy and the optimal actor, then updates the network using both TD errors and the KL supervision.
 
 \begin{algorithm}[!htb]
 \caption{Efficient Reinforcement Learning with a Q-Teacher}
 \label{alg:earnhft_efficient}
 \begin{algorithmic}[1]
-\State \textbf{Input:} time series $\mathcal{D}$ of length $N$, commission rate $\delta$, action space $A$
+\State \textbf{Input:} time series $\mathcal{D}$ of length $N$, commission rate $\sigma$, action space $A$, number of epochs $n_{\mathrm{ep}}$, minibatch size $B$
 \State \textbf{Output:} network parameters $\theta$
-\State Initialise replay buffer $R$, network $Q_\theta$, target $Q_{\theta'}$; build $Q^\star$ via Algorithm~\ref{alg:earnhft_qtable}; initialise environment.
-\For{$t = 1$ \textbf{to} $N-1$} \Comment{exploration rollout}
-  \State Choose $a_\epsilon$ by the $\epsilon$-greedy policy; store $(s,a_\epsilon,r,s',Q^\star)$ in $R$.
+\State Initialise replay buffer $R$, network $Q_\theta$, target $Q_{\theta'}$; build $Q^\star$ via Algorithm~\ref{alg:earnhft_qtable} with commission rate $\sigma$.
+\For{epoch $= 1$ \textbf{to} $n_{\mathrm{ep}}$}
+  \State Reset the trading environment.
+  \For{$t = 1$ \textbf{to} $N-1$} \Comment{exploration rollout}
+    \State Choose $a_\epsilon$ by the $\epsilon$-greedy policy; store $(s,a_\epsilon,r,s',Q^\star)$ in $R$.
+  \EndFor
+  \State Reset the trading environment.
+  \For{$t = 1$ \textbf{to} $N-1$} \Comment{optimal-actor rollout}
+    \State Choose $a_o = \argmax_{a} Q^\star[t,p,a]$; store $(s,a_o,r,s',Q^\star)$ in $R$.
+  \EndFor
+  \For{each scheduled gradient step, once $R$ holds at least $B$ transitions}
+    \State Sample a minibatch of $B$ transitions from $R$.
+    \State Compute $L$ by \eqref{eq:earnhft_loss}, using the double-DQN target $r+\gamma\,Q_{\theta'}\bigl(s',\argmax_{a} Q_\theta(s',a)\bigr)$.
+    \State Descend on $\theta$; update the target network by $\theta'\gets\tau_{\mathrm{poly}}\theta+(1-\tau_{\mathrm{poly}})\theta'$.
+  \EndFor
+  \State Decay the exploration rate $\epsilon$ and the supervision coefficient $\alpha_{\mathrm{KL}}$.
 \EndFor
-\For{$t = 1$ \textbf{to} $N-1$} \Comment{optimal-actor rollout}
-  \State Choose $a_o = \argmax_{a} Q^\star[t,p,a]$; store $(s,a_o,r,s',Q^\star)$ in $R$.
-\EndFor
-\State Sample transitions; compute $L$ by \eqref{eq:earnhft_loss}; descend on $\theta$ and set $\theta'=\tau\theta+(1-\tau)\theta'$.
 \State \textbf{return} $Q_\theta$
 \end{algorithmic}
 \end{algorithm}
 
-The Q-teacher does not compromise correctness. Treating the supervised update as an operator $H$ on action values, one can show $H$ is a contraction in the sup-norm whose fixed point is $Q^\star$, so the learned value still converges to the optimum. Following the convergence argument for Q-learning~\cite{jaakkola1993convergence}, it suffices to verify these two properties of $H$. The operator combines the usual Bellman backup with the supervision term and is
+We now make precise the sense in which the Q-teacher does not compromise correctness. The analysis is a \emph{tabular idealisation}: it is carried out on the historical-replay MDP whose state is the pair $(t,p)$ of timestamp and position---the space on which the teacher table of Algorithm~\ref{alg:earnhft_qtable} is defined---rather than on the network's feature state, and it analyses the linear advantage-matching operator below rather than the KL-form penalty of \eqref{eq:earnhft_loss}; the penalty's weight $\alpha_{\mathrm{KL}}$ decays over training, and no formal correspondence between $\alpha_{\mathrm{KL}}$ and the fixed mixing weight $\lambda$ below is established here. Treating the idealised supervised update as an operator $\mathcal{T}$ on action values over this space, one can show $\mathcal{T}$ is a contraction in the sup-norm whose fixed point is $Q^\star$. Following the convergence argument for Q-learning~\cite{watkins1992qlearning,jaakkola1993convergence}, it suffices to verify these two properties of $\mathcal{T}$, together with the stochastic-approximation conditions stated in Theorem~\ref{thm:earnhft_convergence}. The operator combines the usual Bellman backup with the supervision term and is
 \begin{equation}
 \label{eq:earnhft_operator}
-Hq(x,a) = \lambda\sum_{y\in X}T(y\mid x,a)\bigl(r(x,a,y)+\gamma\max_b q(y,b)\bigr) + (1-\lambda)\Bigl(\tfrac{1}{|A|}\textstyle\sum_{a\in A}q(x,a)+Re(x,a)\Bigr),
+\mathcal{T}q(x,a) = \lambda\sum_{y\in X}T(y\mid x,a)\bigl(r(x,a,y)+\gamma\max_b q(y,b)\bigr) + (1-\lambda)\Bigl(\tfrac{1}{|A|}\textstyle\sum_{a\in A}q(x,a)+Re(x,a)\Bigr),
 \end{equation}
 where the supervision residual is $Re(x,a) = q^\star(x,a) - \tfrac{1}{|A|}\sum_{a\in A}q^\star(x,a)$ and $\lambda\in(0,1]$ weights the Bellman backup against the supervision term.
 
-\begin{proposition}[$Q^\star$ is a fixed point of $H$]
+\begin{proposition}[$Q^\star$ is a fixed point of $\mathcal{T}$]
 \label{prop:earnhft_fixed}
-The optimal action value $q^\star$ satisfies $Hq^\star = q^\star$.
+The optimal action value $q^\star$ satisfies $\mathcal{T}q^\star = q^\star$.
 \end{proposition}
 \begin{proof}
 Substituting $q^\star$ into \eqref{eq:earnhft_operator} and using the Bellman optimality equation $q^\star(x,a)=\sum_y T(y\mid x,a)(r(x,a,y)+\gamma\max_b q^\star(y,b))$ for the first term and the definition of $Re$ for the second,
 \begin{align*}
-Hq^\star(x,a) &= \lambda\, q^\star(x,a) + (1-\lambda)\Bigl(\tfrac{1}{|A|}\textstyle\sum_a q^\star(x,a) + q^\star(x,a) - \tfrac{1}{|A|}\textstyle\sum_a q^\star(x,a)\Bigr) \\
+\mathcal{T}q^\star(x,a) &= \lambda\, q^\star(x,a) + (1-\lambda)\Bigl(\tfrac{1}{|A|}\textstyle\sum_a q^\star(x,a) + q^\star(x,a) - \tfrac{1}{|A|}\textstyle\sum_a q^\star(x,a)\Bigr) \\
 &= \lambda\, q^\star(x,a) + (1-\lambda)\, q^\star(x,a) = q^\star(x,a). \qedhere
 \end{align*}
 \end{proof}
 
 \begin{proposition}[Contraction in the sup-norm]
 \label{prop:earnhft_contraction}
-For any action values $q_1,q_2$, $\|Hq_1-Hq_2\|_\infty \le k\,\|q_1-q_2\|_\infty$ with $k=1-(1-\lambda)\gamma<1$.
+Let $\gamma\in(0,1)$. For any action values $q_1,q_2$, $\|\mathcal{T}q_1-\mathcal{T}q_2\|_\infty \le k\,\|q_1-q_2\|_\infty$ with $k=\lambda\gamma+(1-\lambda)=1-\lambda(1-\gamma)<1$.
 \end{proposition}
 \begin{proof}
-The supervision residual $Re(x,a)$ depends only on $q^\star$ and not on the argument of $H$, so it cancels in the difference $Hq_1-Hq_2$. Bounding the $\max$ operator by $|\max_b q_1(y,b)-\max_b q_2(y,b)|\le\max_b|q_1(y,b)-q_2(y,b)|$,
+The supervision residual $Re(x,a)$ depends only on $q^\star$ and not on the argument of $\mathcal{T}$, so it cancels in the difference $\mathcal{T}q_1-\mathcal{T}q_2$. Bounding the $\max$ operator by $|\max_b q_1(y,b)-\max_b q_2(y,b)|\le\max_b|q_1(y,b)-q_2(y,b)|$,
 \begin{align*}
-\|Hq_1-Hq_2\|_\infty
+\|\mathcal{T}q_1-\mathcal{T}q_2\|_\infty
 &\le \lambda\gamma\,\|q_1-q_2\|_\infty + (1-\lambda)\,\|q_1-q_2\|_\infty \\
-&= \bigl(1-(1-\lambda)\gamma\bigr)\|q_1-q_2\|_\infty.
+&= \bigl(\lambda\gamma+(1-\lambda)\bigr)\|q_1-q_2\|_\infty = \bigl(1-\lambda(1-\gamma)\bigr)\|q_1-q_2\|_\infty.
 \end{align*}
-Since $\gamma\in(0,1]$ and $\lambda\in(0,1]$, the factor $k=1-(1-\lambda)\gamma<1$.
+Since $\gamma\in(0,1)$ and $\lambda\in(0,1]$, the factor $k=1-\lambda(1-\gamma)<1$. (When $\gamma=1$ the factor equals $1$ and $\mathcal{T}$ is merely non-expansive; the undiscounted case is instead handled directly by the finite-horizon backward induction of Algorithm~\ref{alg:earnhft_qtable}.)
 \end{proof}
 
-\begin{theorem}[Convergence of the supervised update]
+\begin{theorem}[Convergence of the supervised update in the tabular idealisation]
 \label{thm:earnhft_convergence}
-Under a finite MDP, the action value learned with the optimal-value-supervisor update of \eqref{eq:earnhft_loss} converges to the optimal action value $Q^\star$.
+Consider the historical-replay MDP with state $(t,p)$ and discount $\gamma\in(0,1)$. Suppose the tabular iterates driven by the operator $\mathcal{T}$ of \eqref{eq:earnhft_operator} use step sizes satisfying the Robbins--Monro conditions ($\sum_k a_k=\infty$, $\sum_k a_k^2<\infty$), every state--action pair is visited infinitely often, and the update noise has bounded variance. Then the iterates converge almost surely to $Q^\star$.\footnote{The deployed implementation, which uses function approximation, lies outside this tabular idealisation; the result should be read as motivation rather than a guarantee for the deployed algorithm.}
 \end{theorem}
 \begin{proof}
-Propositions~\ref{prop:earnhft_fixed} and~\ref{prop:earnhft_contraction} show that $H$ is a sup-norm contraction with unique fixed point $Q^\star$. By the stochastic-approximation argument of~\cite{jaakkola1993convergence}, the iterates therefore converge almost surely to $Q^\star$.
+Propositions~\ref{prop:earnhft_fixed} and~\ref{prop:earnhft_contraction} show that $\mathcal{T}$ is a sup-norm contraction with unique fixed point $Q^\star$. Under the stated step-size, visitation, and noise conditions, the stochastic-approximation argument of~\cite{jaakkola1993convergence} applies, and the iterates converge almost surely to $Q^\star$.
 \end{proof}
 
 \subsection{Stage II: Construction of the Agent Pool}
@@ -154,40 +175,45 @@ Propositions~\ref{prop:earnhft_fixed} and~\ref{prop:earnhft_contraction} show th
 
 Because micro-level information changes rapidly, no single agent maintains performance over a long period; preliminary experiments confirm that training across conflicting trends is incompatible. We therefore decompose the market into trends and develop a specialist for each.
 
-\paragraph{Generating diverse agents.} Prior approaches obtain diversity as a by-product of random seeds or hyperparameter search~\cite{sun2023mastering}, which is unstructured. We instead train agents with explicit \emph{preferences} over market trends. The training series (over three million steps) is cut into chunks of length $L$, each a continuous trend; a preference parameter $\beta$ assigns each chunk with buy-and-hold return rate $r$ a sampling priority
+\paragraph{Generating diverse agents.} Prior approaches obtain diversity as a by-product of random seeds or hyperparameter search~\cite{sun2023mastering}, which is unstructured. We instead train agents with explicit \emph{preferences} over market trends. The training series (about 2.4 million steps) is cut into chunks of length $L$, each a continuous trend; a preference parameter $\beta$ assigns each chunk with buy-and-hold return rate $r$ a sampling priority
 \begin{equation}
 \label{eq:earnhft_pes}
-f(x) =
+f(r) =
 \begin{cases}
-\dfrac{e^{\beta r}}{\mathrm{pdf}(r)} & \text{if } Q_{\frac{\theta}{2}}(R) \le r \le Q_{1-\frac{\theta}{2}}(R),\\[2mm]
+\dfrac{e^{\beta r}}{\mathrm{pdf}(r)} & \text{if } Q_{\frac{\zeta}{2}}(R) \le r \le Q_{1-\frac{\zeta}{2}}(R),\\[2mm]
 e^{\beta r} & \text{otherwise},
 \end{cases}
 \end{equation}
-where $Q_{\frac{\theta}{2}}(R)$ is the $\frac{\theta}{2}$-quantile of return rates and $\mathrm{pdf}$ is a kernel density estimate,
+where $Q_{\frac{\zeta}{2}}(R)$ is the $\frac{\zeta}{2}$-quantile of return rates, $\zeta$ the clipping quantile, and $\mathrm{pdf}$ is a kernel density estimate,
 \begin{equation}
 \label{eq:earnhft_kernel}
 \mathrm{pdf}(x)=\frac{1}{nh}\sum_{r\in R} K\!\left(\frac{x-r}{h}\right),
 \end{equation}
-with bandwidth $h$ searched around Silverman's rule~\cite{silverman1984spline} and $K$ a standard normal kernel. Dividing by the density removes the influence of the dataset's own distribution, while $e^{\beta r}$ tilts sampling towards a preferred trend; clipping the extremes prevents a few violent chunks from poisoning the agent everywhere. Different $\beta$ values yield agents specialised to different trends.
+with bandwidth $h$ searched around Silverman's rule~\cite{silverman1986density} and $K$ a standard normal kernel. Dividing by the density removes the influence of the dataset's own distribution, while $e^{\beta r}$ tilts sampling towards a preferred trend; clipping the extremes prevents a few violent chunks from poisoning the agent everywhere. Different $\beta$ values yield agents specialised to different trends.
 
-\paragraph{Market segmentation and labelling.} To evaluate specialists per trend we need to label the market. Algorithm~\ref{alg:earnhft_segment} denoises the series, splits it at extrema, merges adjacent segments whose dynamic-time-warping~\cite{muda2010voice} and slope differences are small, and labels segments by slope quantiles. Unlike prior methods, it requires no per-dataset hyperparameter tuning.
+\paragraph{Market segmentation and labelling.} To evaluate specialists per trend we need to label the market. Algorithm~\ref{alg:earnhft_segment} denoises the series, splits it at extrema, merges adjacent segments whose dynamic-time-warping~\cite{sakoe1978dtw,berndt1994dtw} and slope differences are small, and labels segments by slope quantiles. Unlike prior methods, it requires no per-dataset hyperparameter tuning.
 
 \begin{algorithm}[!htb]
 \caption{Market Segmentation and Labelling}
 \label{alg:earnhft_segment}
 \begin{algorithmic}[1]
-\State \textbf{Input:} time series $\mathcal{D}$ of length $N$; risk threshold $\theta$; number of labels $M$
+\State \textbf{Input:} time series $\mathcal{D}$ of length $N$; clipping quantile $\zeta$; number of labels $M$
 \State \textbf{Output:} a trend label for every point of $\mathcal{D}$
-\State $\mathcal{D}' \gets$ denoise high-frequency noise of $\mathcal{D}$.
-\State Divide $\mathcal{D}'$ at its extrema into segments $S$.
-\State Merge adjacent segments in $S$ whose DTW and slope differences are small, until $S$ is stable.
-\State Compute thresholds $H = Q_{1-\frac{\theta}{2}}(R)$, $L = Q_{\frac{\theta}{2}}(R)$ on segment slopes $R$.
-\State Compute per-label slope bounds from the quantiles and thresholds; label each segment.
+\State $\mathcal{D}' \gets$ apply a low-pass filter to $\mathcal{D}$ to remove high-frequency noise.
+\State Compute first differences $\Delta\mathcal{D}'_t=\mathcal{D}'_t-\mathcal{D}'_{t-1}$; split $\mathcal{D}'$ at every sign change of $\Delta\mathcal{D}'$ (its extrema) into segments $S$.
+\While{$S$ is not stable}
+  \State For each pair of adjacent segments in $S$, merge them if both their slope difference and their DTW distance are below the merge tolerances.
+\EndWhile
+\State Compute the average slope $r_i$ of the buy-and-hold net-value curve of each segment; collect the slopes into $R$.
+\State Compute thresholds $h_{\mathrm{hi}} = Q_{1-\frac{\zeta}{2}}(R)$, $h_{\mathrm{lo}} = Q_{\frac{\zeta}{2}}(R)$ on the segment slopes $R$.
+\State Label segment $s_i$ as $M$ if $r_i>h_{\mathrm{hi}}$, as $1$ if $r_i<h_{\mathrm{lo}}$, and otherwise as the $j\in\{2,\dots,M-1\}$ with $h_{\mathrm{lo}}+(j-2)\frac{h_{\mathrm{hi}}-h_{\mathrm{lo}}}{M-2} < r_i \le h_{\mathrm{lo}}+(j-1)\frac{h_{\mathrm{hi}}-h_{\mathrm{lo}}}{M-2}$.
 \State \textbf{return} the label of each segment.
 \end{algorithmic}
 \end{algorithm}
 
-\paragraph{Agent selection.} Including all trained agents would inflate the router's action space, so we select a small pool. Each point of the validation set is labelled by Algorithm~\ref{alg:earnhft_segment}; agents are evaluated across trends and initial positions, and the most profitable agent under each (trend, initial-position) pair is retained, forming a two-dimensional pool indexed by $(m,n)$ for $m$ trends and $n$ initial positions.
+The type and cutoff of the low-pass filter and the numerical merge tolerances for the slope and DTW criteria are implementation constants that are not documented in the published EarnHFT sources, which limits exact reproducibility of the segmentation; the same constants were, however, used unchanged across all four datasets, in the sense that no per-dataset tuning was performed.
+
+\paragraph{Agent selection.} Including all trained agents would inflate the router's action space, so we select a small pool. Each point of the validation set is labelled by Algorithm~\ref{alg:earnhft_segment}; agents are evaluated across trends and initial positions, and the most profitable agent under each (trend, initial-position) pair is retained, forming a two-dimensional pool indexed by $(m,n)$ for $m$ trends and $n$ initial positions. Two caveats apply to this selection. The 200 candidates are checkpoints drawn from only four training runs (four preference values $\times$ 50 epochs), so many of them are highly correlated; and the same validation window is used both to select the specialists and to select the router, so the selection is exposed to a winner's-curse effect~\cite{harvey2016cross}, and validation performance is likely to overstate test performance.
 
 \subsection{Stage III: Dynamic Routing}
 \label{sec:earnhft_stage3}
@@ -198,7 +224,7 @@ We train the router for the high-level MDP with DDQN~\cite{van2016deep}. Operati
 \section{Experimental Setup}
 \label{sec:earnhft_setup}
 
-\paragraph{Datasets.} We evaluate on four cryptocurrencies covering mainstream and niche assets and bull, bear, and sideways conditions, summarised in \tref{tab:earnhft_dataset}. On each, the last nine days are used for testing, the preceding nine for validation, and the remainder for training. Low-level agents are trained on the training set; the validation set is segmented and labelled for model selection; the router is then trained on the training set and selected on the full validation set before testing.
+\paragraph{Datasets.} We evaluate on four cryptocurrencies covering mainstream and niche assets and bull, bear, and sideways conditions, summarised in \tref{tab:earnhft_dataset}. All four are spot trading pairs on the Binance exchange, from which the second-level OHLC and LOB snapshots derive. On each, the last nine days are used for testing, the preceding nine for validation, and the remainder for training. Low-level agents are trained on the training set; the validation set is segmented and labelled for model selection; the router is then trained on the training set and selected on the full validation set before testing. The published EarnHFT sources do not document the LOB depth used in the state features, the timestamp timezone, or the handling of missing seconds, outliers, and feature scaling; these preprocessing details are inherited from the original implementation and are noted here as a reproducibility limitation.
 
 \begin{table}[!htb]
 \setlength\tabcolsep{6pt}
@@ -219,9 +245,9 @@ GALA/USDT & Bull    & 3{,}970{,}740 & 22/07/01 & 22/08/15 \\
 
 \paragraph{Metrics.} We report the six financial metrics defined in \sref{sec:bg_metrics}: TR (profit); ASR, ACR, ASoR (risk-adjusted profit); and AVOL, MDD (risk).
 
-\paragraph{Baselines.} We compare against six methods: two policy-based RL algorithms, PPO~\cite{schulman2017proximal} and DRA~\cite{briola2021deep}; two value-based RL algorithms, DQN~\cite{mnih2015human} and CDQNRP~\cite{zhu2022quantitative}; and two rule-based methods, MACD~\cite{krug2022enforcing} and IV~\cite{chordia2002order}. Where official implementations exist we reuse their hyperparameters; otherwise we reimplement faithfully from the original papers.
+\paragraph{Baselines.} We compare against six methods: two policy-based RL algorithms, PPO~\cite{schulman2017proximal} and DRA~\cite{briola2021deep}; two value-based RL algorithms, DQN~\cite{mnih2015human} and CDQNRP~\cite{zhu2022quantitative}; and two rule-based methods, MACD~\cite{appel2005technical} and IV~\cite{chordia2002order}. Where official implementations exist we reuse their hyperparameters; otherwise we reimplement faithfully from the original papers.
 
-\paragraph{Training.} All experiments run on a single RTX~4090 GPU. The commission rate is $0$ for BTC/TUSD and $0.02\%$ for the others, following Binance. We train with $\beta\in\{-90,-10,30,100\}$ for 50 epochs each, producing 200 agents, optimised with Adam. The full set of experiments completes in about ten hours.
+\paragraph{Training.} All experiments run on a single RTX~4090 GPU. The commission rate is $0$ for BTC/TUSD and $0.015\%$ for the others, following Binance. We train with $\beta\in\{-90,-10,30,100\}$ for 50 epochs each, producing 200 agents, optimised with Adam. Following the published configuration, the DDQN specialists use a replay buffer of $10^{6}$ transitions, a minibatch size of 512, a learning rate of $5\times10^{-4}$, an initial supervision coefficient $\alpha_{\mathrm{KL}}=128$, and a Polyak coefficient $\tau_{\mathrm{poly}}=0.005$; the maximum holding is $0.01$ BTC on the two Bitcoin pairs, $0.1$ ETH, and $4{,}000$ GALA. The full set of experiments completes in about ten hours.
 
 %----------------------------------------------------------------------------------------
 \section{Results and Analysis}
@@ -230,7 +256,7 @@ GALA/USDT & Bull    & 3{,}970{,}740 & 22/07/01 & 22/08/15 \\
 \subsection{Comparison with Baselines}
 \label{sec:earnhft_comparison}
 
-\tref{tab:earnhft_main} reports the main comparison. EarnHFT achieves the highest profit (TR) on all four datasets and the highest risk-adjusted profit on three. Value-based methods (DQN, CDQNRP) perform acceptably only when the validation and test sets are similar under a stable trend. Policy-based methods (PPO, DRA) tend to collapse onto a do-nothing policy---returning a target equal to the current position to avoid commission---even at a learning rate of $10^{-7}$, and fail badly in the bear market. Rule-based methods are highly sensitive to their take-profit and stop-loss thresholds and earn only moderate profit in volatile markets. EarnHFT, by contrast, is a deliberately aggressive trader because the optimal-value supervisor and optimal actor convey profit-oriented experience; it consequently trails on some risk metrics while dominating on profit. \fref{fig:earnhft_trading} shows a representative episode: EarnHFT opens and closes a position within thirty seconds, profiting from a movement that appears as a mere pullback at minute scale.
+\tref{tab:earnhft_main} reports the main comparison. EarnHFT achieves the highest profit (TR) on all four datasets and the highest risk-adjusted profit on three. Value-based methods (DQN, CDQNRP) perform acceptably only when the validation and test sets are similar under a stable trend. Policy-based methods (PPO, DRA) are hard to stabilise at this decision frequency even at a learning rate of $10^{-7}$ and fail badly in the bear market; on GALA the two baselines collapse to identical behaviour (identical rows in \tref{tab:earnhft_main}).\footnote{The identical GALA entries for DRA and PPO are inherited from the original EarnHFT experiments. The positive return and non-trivial volatility of this shared row are inconsistent with a policy that never trades from an initially empty position, so the original experiment records should be re-checked to confirm the behaviour behind these numbers.} Rule-based methods are highly sensitive to their take-profit and stop-loss thresholds and earn only moderate profit in volatile markets. EarnHFT, by contrast, is a deliberately aggressive trader because the optimal-value supervisor and optimal actor convey profit-oriented experience; it consequently trails on some risk metrics while dominating on profit. All comparisons in this section rest on a nine-day test window per market, a single training seed, and a single evaluation path, without confidence intervals or significance tests; they should therefore be read as indicative rather than statistically established. \fref{fig:earnhft_trading} shows a representative episode: EarnHFT opens and closes a position within thirty seconds, profiting from a movement that appears as a mere pullback at minute scale.
 
 \begin{table}[!htb]
 \centering
@@ -291,7 +317,7 @@ Market & Model & TR$\uparrow$ & ASR$\uparrow$ & ACR$\uparrow$ & ASoR$\uparrow$ &
 \subsection{Effectiveness of the Hierarchical Framework}
 \label{sec:earnhft_hierarchy}
 
-\fref{fig:earnhft_hierarchy} compares the router with each specialist in its pool. Bull and rally specialists tend to buy and hold and excel in the bull market (GALA); sideways specialists trade little and hold; pullback and bear specialists tend to close positions and excel in the bear market (ETH). The router combines these strengths and delivers the best profit on all four datasets. \fref{fig:earnhft_selection} shows the router's selection distribution: high-volatility datasets (ETH, GALA) elicit a balanced distribution across trends because dynamics change frequently, whereas low-volatility datasets (BTCT, BTCU) concentrate on a few dynamics.
+\fref{fig:earnhft_hierarchy} compares the router with each specialist in its pool. Bull and rally specialists tend to buy and hold and excel in the bull market (GALA); sideways specialists trade little and hold; pullback and bear specialists tend to close positions and excel in the bear market (ETH). The router combines these strengths and delivers the best profit on all four datasets. \fref{fig:earnhft_selection} shows the router's selection distribution: on ETH, where dynamics change frequently, the selections spread across several trend specialists, whereas on GALA the router concentrates 67.6\% of its selections on the Bull specialist, consistent with GALA's sustained uptrend; the low-volatility datasets (BTCT, BTCU) likewise concentrate on a few dynamics.
 
 \begin{figure}[!htb]
 \centering
@@ -303,14 +329,14 @@ Market & Model & TR$\uparrow$ & ASR$\uparrow$ & ACR$\uparrow$ & ASoR$\uparrow$ &
 \begin{figure}[!htb]
 \centering
 \includegraphics[width=0.7\textwidth]{Chapter4/earnhft_trend_selection}
-\caption[Router selection distribution.]{Distribution of the router's specialist selections across the four datasets. High-volatility markets elicit a more balanced distribution; low-volatility markets concentrate on fewer dynamics.}
+\caption[Router selection distribution.]{Distribution of the router's specialist selections across the four datasets. ETH elicits a comparatively spread-out distribution across trends; GALA concentrates most selections (67.6\%) on the Bull specialist; the low-volatility markets concentrate on fewer dynamics.}
 \label{fig:earnhft_selection}
 \end{figure}
 
 \subsection{Effectiveness of the Optimal Action Value}
 \label{sec:earnhft_ablation}
 
-\tref{tab:earnhft_ablation} ablates the optimal value supervisor (OS) and optimal actor (OA) on ETH and GALA, measuring the steps to converge (CS), the converged reward sum (RS), and the average holding length (AHL). On GALA, adding OS to plain DDQN reduces the steps to converge to about 15\% while raising the return; OA further raises the return at the cost of more steps. On ETH, a bull market, OS does not reduce CS but substantially raises the return. OS is the more effective component because it supplies information about all actions and adapts as the policy changes, whereas OA only provides demonstrations.
+\tref{tab:earnhft_ablation} ablates the optimal value supervisor (OS) and optimal actor (OA) on ETH and GALA, measuring the steps to converge (CS), the converged reward sum (RS), and the average holding length (AHL). On GALA, adding OS to plain DDQN reduces the steps to converge to about 15\% while raising the return; OA further raises the return at the cost of more steps. On ETH, a bear market, OS does not reduce CS but substantially raises the return. OS is the more effective component because it supplies information about all actions and adapts as the policy changes, whereas OA only provides demonstrations.
 
 \begin{table}[!htb]
 \setlength\tabcolsep{5pt}
@@ -334,12 +360,12 @@ Market & Model & TR$\uparrow$ & ASR$\uparrow$ & ACR$\uparrow$ & ASoR$\uparrow$ &
 \subsection{Trading Behaviour and Computational Cost}
 \label{sec:earnhft_behaviour}
 
-The trading behaviour of EarnHFT varies with the underlying market in a manner consistent with the unit cost of each asset and the stability of its trend. On the two Bitcoin datasets (BTCT and BTCU), the high unit price makes each round trip relatively expensive in dollar terms, and the agent trades less frequently and holds positions only when the price excursion is comfortably larger than the round-trip commission. On ETH, where the trend reverses sharply within the test window, the agent trades much more often to capture the short pullbacks that the minute-level router exposes. On GALA, which trends upward through most of the test period without major reversals, the agent holds positions for long stretches and lets the trend do the work. In aggregate, EarnHFT trades less frequently in stable bull markets and more frequently in volatile or bear markets---behaviour that matches what a discretionary high-frequency trader would do, but emerges from the hierarchy without any hand-coded regime detector.
+The trading behaviour of EarnHFT varies with the underlying market in a manner consistent with the stability of each market's trend and the cost of trading in it. On the two Bitcoin datasets (BTCT and BTCU), whose test windows are comparatively stable and offer few sustained excursions, the agent trades less frequently and holds positions only when the expected price movement comfortably exceeds the round-trip cost of crossing the bid--ask spread (plus commission on BTCU; BTCT is commission-free). On ETH, where the trend reverses sharply within the test window, the agent trades much more often to capture the short pullbacks that the minute-level router exposes. On GALA, which trends upward through most of the test period without major reversals, the agent holds positions for long stretches and lets the trend do the work. In aggregate, EarnHFT trades less frequently in stable bull markets and more frequently in volatile or bear markets---behaviour that matches what a discretionary high-frequency trader would do, but emerges from the hierarchy without any hand-coded regime detector.
 
-\paragraph{Computational cost.} All experiments run on a single NVIDIA RTX~4090 GPU. The full pipeline---building the Q-teacher table, training the $200$ specialist agents under the four preference values $\beta\in\{-90,-10,30,100\}$, segmenting and labelling the validation set, selecting the pool, and training the minute-level DDQN router---completes in approximately ten hours for each market, dominated by stage II specialist training. At inference time the only on-policy work is one specialist DDQN forward pass per second and one router forward pass per minute, both of which fit comfortably inside the second-level decision budget on a commodity GPU.
+\paragraph{Computational cost.} All experiments run on a single NVIDIA RTX~4090 GPU. The full pipeline---building the Q-teacher table, training the $200$ specialist agents under the four preference values $\beta\in\{-90,-10,30,100\}$, segmenting and labelling the validation set, selecting the pool, and training the minute-level DDQN router---completes in approximately ten hours for the full set of four markets, dominated by stage II specialist training. At inference time the only on-policy work is one specialist DDQN forward pass per second and one router forward pass per minute, both of which fit comfortably inside the second-level decision budget on a commodity GPU.
 
 %----------------------------------------------------------------------------------------
 \section{Chapter Summary}
 \label{sec:earnhft_summary}
 
-This chapter presented EarnHFT, a three-stage hierarchical RL framework that makes high-frequency trading tractable for RL. It addresses the extremely long horizon with a dynamic-programming Q-teacher that, under the exogenous-price assumption of \sref{sec:earnhft_stage1} and a fixed historical training window, preserves the optimal Bellman fixed point of the supervised update while accelerating learning empirically; and it addresses regime non-stationarity by training a pool of trend specialists and a minute-level router that switches among them. EarnHFT outperforms six strong baselines across four markets, exceeding the runner-up by at least 30\% in profitability, and the ablations confirm the contribution of each component. In the language of the thesis, EarnHFT is the first instantiation of the decompose--specialise--aggregate pattern, and its aggregation mechanism---a DDQN router that selects a single specialist, trained by reinforcement learning against the trading reward---is the most tightly coupled of the three. The next chapter retains the pattern but confronts a setting, leveraged futures, where the router must additionally manage risk and the agent must become aware of its own competence boundary.
+This chapter presented EarnHFT, a three-stage hierarchical RL framework that makes high-frequency trading tractable for RL. It addresses the extremely long horizon with a hindsight dynamic-programming Q-teacher that, under the exogenous-price assumption of \sref{sec:earnhft_stage1} and a fixed historical training window, preserves the optimal Bellman fixed point of the supervised update in the tabular idealisation of Theorem~\ref{thm:earnhft_convergence} while accelerating learning empirically; and it addresses regime non-stationarity by training a pool of trend specialists and a minute-level router that switches among them. EarnHFT attains the highest total return on all four markets: on the two markets where the strongest baseline is profitable it exceeds the best baseline's total return by 39\% (GALA) and 110\% (BTC/TUSD), and it is the only profitable method on the remaining two; it leads on the risk-adjusted metrics in three of the four markets, and the ablations confirm the contributions of the two components ablated in \sref{sec:earnhft_ablation}, the optimal value supervisor and the optimal actor. In the language of the thesis, EarnHFT is the first instantiation of the decompose--specialise--aggregate pattern, and its aggregation mechanism---a DDQN router that selects a single specialist, trained by reinforcement learning against the trading reward---is the most tightly coupled of the three. The next chapter retains the pattern but confronts a setting, leveraged futures, where the router must additionally manage risk and the agent must become aware of its own competence boundary.
