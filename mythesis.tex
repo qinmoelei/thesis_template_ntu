@@ -36,6 +36,9 @@
 \usepackage{mathtools}
 \usepackage{algorithm}
 \usepackage{algpseudocode}
+% Give hyperref a bookmark level for algorithm floats (silences the
+% "bookmark level for unknown algorithm defaults to 0" info message).
+\makeatletter\providecommand*{\toclevel@algorithm}{0}\makeatother
 \usepackage[square, numbers, comma, sort&compress]{natbib} % Use the natbib reference package - read up on this to edit the reference style; if you want text (e.g. Smith et al., 2012) for the in-text references (instead of numbers), remove 'numbers'
 
 \title{\ttitle} % Defines the thesis title - don't touch this
@@ -104,14 +107,14 @@
 % 	DECLARATION PAGE
 % ----------------------------------------------------------------------------------------
 
-\thesisdeclareOriginality{I hereby certify that the work embodied in this thesis is the result of original research, is free of plagiarised materials, and has not been submitted for a higher degree to any other University or Institution.\par\bigskip\noindent\textbf{Disclosure on AI Use.} I declare that ChatGPT was utilised to enhance the clarity and readability of this thesis. I confirm that I have adhered to NTU's Policy on the Use of Generative AI in Research. I have reviewed and edited the content as necessary after using this tool and accept full responsibility for the content of this thesis.}{May 2026}{Styles/Molei_Qin_signature.png}
+\thesisdeclareOriginality{I hereby certify that the work embodied in this thesis is the result of original research, is free of plagiarised materials, and has not been submitted for a higher degree to any other University or Institution.\par\bigskip\noindent\textbf{Disclosure on AI Use.} I used Claude Fable~5 through Claude Code and GPT-5.6-sol through Codex to polish the prose by editing the corresponding \LaTeX{} source files, review equation formatting, and cross-check the thesis against publicly available source code. I confirm that I have adhered to NTU's Policy on the Use of Generative AI in Research. I reviewed and edited all tool-assisted changes and accept full responsibility for the content of this thesis.}{May 2026}{Styles/Molei_Qin_signature.png}
 
-\thesisdeclareSupervisor{I have reviewed the content and presentation style of this thesis and declare it is free of plagiarism and of sufficient grammatical clarity to be examined.  To the best of my knowledge, the research and writing are those of the candidate except as acknowledged in the Authorship Attribution Statement. I confirm that the investigations were conducted in accord with the ethics policies and integrity standards of Nanyang Technological University and that the research data are presented honestly and without prejudice.}{May 2026}{Styles/Bo_An_signature.jpg}
+\thesisdeclareSupervisor{I have reviewed the content and presentation style of this thesis and declare it is free of plagiarism and of sufficient grammatical clarity to be examined.  To the best of my knowledge, the research and writing are those of the candidate except as acknowledged in the Author Attribution Statement. I confirm that the investigations were conducted in accord with the ethics policies and integrity standards of Nanyang Technological University and that the research data are presented honestly and without prejudice.}{May 2026}{Styles/Bo_An_signature.jpg}
 
-\thesisdeclareAuthorship{This thesis contains material from three research papers of which I am the first author. Two of these papers have been accepted for publication at peer-reviewed international conferences; the third is a manuscript in preparation for submission.}
+\thesisdeclareAuthorship{This thesis contains material from three research papers of which I am the first author. Two of these papers have been accepted for publication at peer-reviewed international conferences; the third is currently under review.}
 {The technical chapters of this thesis are based on the following papers, with the author list and per-author contributions given in full for each.
 
-	Chapter~\ref{ch:earnhft} is published as M.~Qin, S.~Sun, W.~Zhang, H.~Xia, X.~Wang, and B.~An, ``EarnHFT: Efficient Hierarchical Reinforcement Learning for High Frequency Trading,'' in \emph{Proceedings of the AAAI Conference on Artificial Intelligence (AAAI'24)}, vol.~38, no.~13, pp.~14669--14676, 2024.
+	Chapter~\ref{ch:earnhft} is published as Molei Qin, Shuo Sun, Wentao Zhang, Haochong Xia, Xinrun Wang, and Bo An, ``EarnHFT: Efficient Hierarchical Reinforcement Learning for High Frequency Trading,'' in \emph{Proceedings of the AAAI Conference on Artificial Intelligence (AAAI'24)}, vol.~38, no.~13, pp.~14669--14676, 2024. Molei Qin and Shuo Sun are designated as equal contributors, and Xinrun Wang and Bo An as corresponding authors.
 
 	The contributions of the co-authors are as follows:
 	\begin{itemize}[topsep=1pt,itemsep=1pt,partopsep=1pt, parsep=1pt]
@@ -122,7 +125,7 @@
 		\item Xinrun Wang provided insightful comments and revised the manuscript.
 	\end{itemize}
 
-	Chapter~\ref{ch:fineft} has been accepted for publication as M.~Qin, X.~Cai, Y.~Li, H.~Xia, C.~Zong, S.~Sun, X.~Wang, and B.~An, ``FineFT: Efficient and Risk-Aware Ensemble Reinforcement Learning for Futures Trading,'' to appear in \emph{Proceedings of the 32nd ACM SIGKDD Conference on Knowledge Discovery and Data Mining (KDD'26)}, 2026.
+	Chapter~\ref{ch:fineft} has been published as Molei Qin, Xinyu Cai, Yewen Li, Haochong Xia, Chuqiao Zong, Shuo Sun, Xinrun Wang, and Bo An, ``FineFT: Efficient and Risk-Aware Ensemble Reinforcement Learning for Futures Trading,'' in \emph{Proceedings of the 32nd ACM SIGKDD Conference on Knowledge Discovery and Data Mining, Volume~1 (KDD'26)}, pp.~1194--1203, 2026, doi:10.1145/3770854.3780187. Xinrun Wang is designated as the corresponding author.
 
 	The contributions of the co-authors are as follows:
 	\begin{itemize}[topsep=1pt,itemsep=1pt,partopsep=1pt, parsep=1pt]
@@ -133,7 +136,7 @@
 		\item Shuo Sun and Xinrun Wang provided insightful comments and carefully revised the manuscript.
 	\end{itemize}
 
-	Chapter~\ref{ch:alphaqd} is based on M.~Qin, M.~Zhu, C.~Zong, and B.~An, ``AlphaQD: Quality-Diversity Reinforcement Learning for Formulaic Alpha Mining,'' a manuscript in preparation for submission to the \emph{ACM SIGKDD Conference on Knowledge Discovery and Data Mining (KDD'27, Cycle~1)}.
+	Chapter~\ref{ch:alphaqd} is based on Molei Qin, Meiying Zhu, Chuqiao Zong, and Bo An, ``AlphaQD: Quality-Diversity Reinforcement Learning for Formulaic Alpha Mining,'' a manuscript currently under review for the \emph{ACM SIGKDD Conference on Knowledge Discovery and Data Mining (KDD'27, Cycle~1)}.
 
 	The contributions of the co-authors are as follows:
 	\begin{itemize}[topsep=1pt,itemsep=1pt,partopsep=1pt, parsep=1pt]
@@ -156,7 +159,7 @@ As my PhD journey at Nanyang Technological University comes to a close, I would 
 
 First and foremost, I would like to express my deepest gratitude to my supervisor, \textbf{Prof.\ Bo~An}, for offering me the opportunity to pursue my PhD under his supervision. Prof.\ An's patience, sharp judgement and high standards have been invaluable in shaping how I think about research. He has taught me to look for the simplest structure behind a difficult problem, to insist on solid motivation and real-world impact, and to write and present my work with clarity. As my research role model, I have learned from him not only how to conduct research but also a sense of responsibility, professionalism and persistence that I hope to carry into the rest of my career. I am grateful for his guidance throughout this journey and for the AMI research family that he has built and continues to nurture at NTU.
 
-I would also like to thank my Thesis Advisory Committee members, Assoc.\ Prof.\ \textbf{Long~Cheng} (College of Computing and Data Science) and Assoc.\ Prof.\ \textbf{Tao~Chen} (Nanyang Business School, Division of Banking and Finance), for the time, the feedback and the perspective they have generously offered during the milestones of this candidature. Their questions and suggestions helped me sharpen the scope of the thesis and strengthen the technical depth of my work.
+I would also like to thank my Thesis Advisory Committee members, Assoc.\ Prof.\ \textbf{Long Cheng} (College of Computing and Data Science) and Assoc.\ Prof.\ \textbf{Tao Chen} (Nanyang Business School, Division of Banking and Finance), for the time, the feedback and the perspective they have generously offered during the milestones of this candidature. Their questions and suggestions helped me sharpen the scope of the thesis and strengthen the technical depth of my work.
 
 This thesis is the result of close collaboration, and I would like to acknowledge the co-authors who shaped the three works it is built on. I owe a particular debt to \textbf{Shuo~Sun}, my senior in the AMI group, who first introduced me to reinforcement learning for quantitative trading, set an example of rigorous and deployment-minded research, and was a co-author on both EarnHFT and FineFT. I am also deeply grateful to \textbf{Prof.\ Xinrun~Wang}, whose insight and steady mentorship have been a constant throughout the projects that make up this thesis. For EarnHFT, I thank \textbf{Wentao~Zhang} and \textbf{Haochong~Xia} for their contributions to the framework, the implementation and the experiments. For FineFT, I thank \textbf{Xinyu~Cai}, \textbf{Yewen~Li}, \textbf{Haochong~Xia} and \textbf{Chuqiao~Zong} for the technical discussions, the implementation help and the careful reading of the manuscript at every stage. Working with each of them has made the research substantially better than I could have made it alone.
 
@@ -169,17 +172,9 @@ Finally, but most importantly, I would like to thank my parents, my family and m
 % \end{flushright}
 }
 
-%----------------------------------------------------------------------------------------
-%	QUOTATION PAGE
-%----------------------------------------------------------------------------------------
-
-\pagestyle{empty} % No headers or footers for the following pages
-\null\vfill
-\begin{center}
-\large To my family.
-\end{center}
-\vfill\vfill\null
-\cleardoublepage % Start a new page and make the next page a right-hand (odd-numbered) page
+% (Standalone dedication page removed 2026-07-13: the dedication already
+% appears as the closing sentence of the Acknowledgements, matching the
+% front-matter convention of the reference NTU theses.)
 
 \pagestyle{fancy} % Return the page headers back to the "fancy" style
 \fancyhead{}   %clear all fields
@@ -197,15 +192,15 @@ Finally, but most importantly, I would like to thank my parents, my family and m
 
 % 1. The Problem 2. The Issues 3. The Approach 4. The Results 5. The Experiments 6. The Applications
 
-Financial markets attract vast pools of capital worldwide. Quantitative trading converts market data into trading decisions---at heart, sequential decision making under uncertainty, for which reinforcement learning (RL), optimising a long-horizon return rather than a one-step prediction, is a natural tool. Markets, however, violate the assumptions on which standard RL rests: non-stationarity, a low signal-to-noise ratio in rewards, extremely long decision horizons, and financially catastrophic mistakes. This thesis works to close this promise--deployment gap through three tasks spanning the trading-frequency spectrum: second-level high-frequency trading of a single spot asset, five-minute trading of leveraged cryptocurrency futures, and daily formulaic alpha mining over a full cross-section of equities. For each task we identify the binding obstacle to off-the-shelf RL and propose a method that addresses it.
+Financial markets attract vast pools of capital worldwide. Quantitative trading converts market data into trading decisions---at heart, sequential decision making under uncertainty, for which reinforcement learning (RL), optimising a long-horizon return rather than a one-step prediction, is a natural tool. Markets, however, violate the assumptions on which standard RL rests: distributions drift, rewards have low signal-to-noise ratios, decision horizons can be extremely long, and errors can have asymmetric financial consequences. This thesis studies that promise--deployment gap through three tasks spanning both frequency and function: second-level position control for a single spot asset, five-minute trading of leveraged cryptocurrency futures, and daily formulaic alpha mining over a full cross-section of equities. For each task we identify the main obstacle to off-the-shelf RL and propose a method that addresses it.
 
-First, we study second-level high-frequency trading, where an agent faces horizons on the order of one million steps and rapid regime changes break any monolithic policy. We propose EarnHFT, a three-stage hierarchical RL framework: (i)~a Q-teacher computed by dynamic programming over future prices, accelerating and stabilising second-level training; (ii)~a pool of trend-specialised agents trained under different preference parameters and selected by profitability; and (iii)~a minute-level router, trained offline and frozen at deployment, that picks a specialist as conditions change. On four cryptocurrency markets, EarnHFT attains the highest total return on all four datasets, exceeding the best profitable baseline by 39--110\% where one exists and remaining the only profitable method elsewhere.
+First, we study second-level high-frequency trading, where an agent faces horizons on the order of one million steps and rapid regime changes challenge a monolithic policy. We propose EarnHFT, a three-stage hierarchical RL framework: (i)~a hindsight, sample-path Q-teacher computed by dynamic programming over replayed future prices to provide auxiliary supervision for second-level training; (ii)~a pool of trend-specialised agents trained under different preference parameters and selected by profitability; and (iii)~a minute-level router, trained offline and frozen at deployment, that picks a specialist as conditions change. In the reported single-seed historical replays of four cryptocurrency markets, EarnHFT attains the highest total return in every dataset.
 
-Second, we investigate leveraged futures trading on five-minute bars, where high leverage amplifies reward noise and unawareness of capability boundaries exposes existing methods to liquidation during black-swan events. We propose FineFT, a three-stage ensemble RL framework: (i)~a selective-update mechanism, driven by an ensemble temporal-difference matrix, that trains diverse specialists efficiently and segments the market automatically; (ii)~one variational autoencoder per market dynamic to capture each specialist's capability boundary and detect out-of-distribution states; and (iii)~a risk-aware heuristic router that switches between specialists and a conservative fallback using VAE losses on recent states. Averaged across the four markets, FineFT reduces maximum drawdown by roughly 63\% relative to the runner-up among baselines with non-negligible market exposure while attaining the highest average total return among the learned methods, although it is not uniformly dominant on every individual market.
+Second, we investigate leveraged futures trading on five-minute bars, where leverage magnifies the profit-and-loss consequences of noisy returns and unfamiliar states can precipitate liquidation. We propose FineFT, a three-stage ensemble RL framework: (i)~a selective-update mechanism, driven by an ensemble temporal-difference matrix, that trains diverse specialists efficiently and is intended to encourage differentiated specialists; (ii)~one variational autoencoder per inferred market dynamic to provide a reconstruction-based familiarity score; and (iii)~a risk-aware heuristic router that switches between specialists and a conservative fallback using recent VAE losses. Across the four reported markets, FineFT has the highest average total return among the learned methods and the lowest unfiltered average maximum drawdown, although it is not uniformly dominant on every individual market.
 
-Third, turning from trading to signal generation, we study formulaic alpha mining, where pool-based RL miners couple the per-alpha reward to an evolving pool---a moving-target objective with no a priori generalisation bound. We propose AlphaQD, a three-stage quality-diversity RL method: (i)~a relational-graph GFlowNet generator trained by trajectory balance against an archive-independent terminal reward; (ii)~a Return-Source MAP-Elites archive whose behaviour descriptor is the normalised daily information-coefficient series of each formula; and (iii)~a top-$k$ cell-selection rule that exports one high-quality representative per occupied cell as the deployed pool. On full-market Chinese A-share and U.S.\ benchmarks, AlphaQD lies in the leading signal-quality cluster and, on A-shares, attains the highest annualised return and the strongest net Sharpe among learned formula-mining methods.
+Third, turning from trading to signal generation, we study formulaic alpha mining, where a dominant family of pool-based RL miners couples each candidate's reward to an evolving pool, creating a moving target. We propose AlphaQD, a three-stage quality-diversity RL method: (i)~a relational-graph GFlowNet generator trained by trajectory balance against an archive-independent terminal reward; (ii)~a Return-Source MAP-Elites archive whose behaviour descriptor is the normalised daily information-coefficient series of each formula; and (iii)~a top-$k$ cell-selection rule that exports one high-quality representative per selected cell as the deployed pool. The method is evaluated on full-market Chinese A-share and U.S.\ panels; on A-shares it attains the highest annualised return among the learned formula-mining methods, while the U.S.\ results are reported as a cross-market robustness check rather than evidence of causal alpha attribution.
 
-The three studies share a common methodological skeleton---decompose the non-stationary market into approximately stationary sub-problems, specialise a learner to each, and aggregate the specialists through a task-appropriate mechanism---with the aggregation step progressively decoupled from the policy's learning reward: an offline-trained RL router in EarnHFT, a risk-aware heuristic router in FineFT, and a quality-diversity archive with a ridge combiner in AlphaQD. We advance this decompose--specialise--aggregate view as a unifying design perspective---a working hypothesis distilled from three studies---rather than a proven general principle.
+The three studies share a broader design move: structure a heterogeneous task into distinguishable regions or behaviours, construct candidates specialised to those regions, and aggregate them through a task-appropriate mechanism. The objects differ materially---market-trend policies in EarnHFT, selectively updated learners in FineFT, and formula elites organised by return-source behaviour in AlphaQD---so the pattern is a comparative perspective, not a claim that all three decompose the market into stationary MDPs. Across the studies, aggregation is progressively separated from the generator's learning reward: an offline-trained RL router in EarnHFT, a reconstruction-based heuristic router in FineFT, and a quality-diversity archive followed by a ridge combiner in AlphaQD.
 
 
 
@@ -264,32 +259,33 @@ The three studies share a common methodological skeleton---decompose the non-sta
 
 \cleardoublepage  % Start a new page (no need if the previous page is list of figures)
 
-\listofnomenclature{ll} % Include a list of Symbols (a three column table)
+\listofnomenclature{p{0.23\textwidth}p{0.70\textwidth}} % Include a list of Symbols and Acronyms
 {
 \multicolumn{2}{l}{\LARGE{\textbf{Symbols}}}\\[0.4cm]
 $\mathcal{S},\ \mathcal{A}$        & the state space and the action space of an MDP\\
 $\pi_\theta$                       & a policy parameterised by $\theta$\\
 $Q(s,a)$                           & the action-value (Q) function\\
-$Q^*(s,a)$                         & the optimal action-value function\\
+$Q^\star(s,a)$                    & the Bellman-optimal action-value function; Chapters~4--5 retain uppercase $Q^\star[t,p,a]$ for a trajectory-conditioned hindsight teacher table\\
 $\gamma$                           & the discount factor\\
 $r_t$                              & the reward received at time $t$\\
-$V_t$                              & the net value (margin balance) of the account at time $t$\\
+$V_t$                              & the account value at time $t$: spot net value or futures margin balance, according to context\\
 $H_t,\ L_t$                        & the position and the leverage at time $t$\\
 $\mathcal{H}(\cdot)$               & the Huber loss\\
 $\mathrm{KL}(\cdot\,\|\,\cdot)$    & the Kullback--Leibler divergence\\
-$\alpha_{\mathrm{KL}}$             & the decay coefficient of the KL supervision term (EarnHFT, FineFT)\\
+$\mathrm{softmax}(\cdot)$          & action-wise softmax (unit temperature unless stated otherwise)\\
+$\alpha_{\mathrm{KL}}$             & the scheduled coefficient of the KL supervision term (EarnHFT, FineFT)\\
 $\alpha$                           & a formulaic alpha (symbolic expression)\\
 $\mathrm{IC}_t(\alpha)$            & the daily cross-sectional information coefficient at time $t$\\
 $\mathrm{ICIR}(\alpha)$            & the information ratio of the IC series\\
-$\mathbf{r}(\alpha)$               & the centred, unit-normalised IC series (return-source descriptor)\\
-$\beta$                            & a preference coefficient over profit and risk (EarnHFT)\\
+$\mathbf{r}(\alpha)$               & the centred, approximately unit-normalised IC series (return-source descriptor)\\
+$\beta$                            & the trend-preference sampling coefficient (EarnHFT)\\
 $\beta_q$                          & the reward-temperature coefficient (AlphaQD)\\[0.6cm]
 
 \multicolumn{2}{l}{\LARGE{\textbf{Acronyms}}}\\[0.4cm]
 RL          & Reinforcement Learning\\
 HFT         & High-Frequency Trading\\
 MDP         & Markov Decision Process\\
-DP-MDP      & Dynamic Parametric Markov Decision Process\\
+DP-MDP      & Dynamic-Parameter Markov Decision Process\\
 HRL         & Hierarchical Reinforcement Learning\\
 DQN         & Deep Q-Network\\
 DDQN        & Double Deep Q-Network\\
@@ -315,14 +311,13 @@ OHLC        & Open-High-Low-Close\\
 IC          & Information Coefficient\\
 ICIR        & Information-Coefficient Information Ratio\\
 MACD        & Moving Average Convergence Divergence\\
-IV          & Imbalance Volume\\
+IV          & Five-level order-book volume imbalance (legacy implementation label)\\
 TR          & Total Return\\
 ASR         & Annualised Sharpe Ratio\\
 ACR         & Annualised Calmar Ratio\\
 ASoR        & Annualised Sortino Ratio\\
 MDD         & Maximum Drawdown\\
 AVOL        & Annualised Volatility\\
-Crypto      & Cryptocurrency\\
 }
 
 %----------------------------------------------------------------------------------------
@@ -375,19 +370,19 @@ Crypto      & Cryptocurrency\\
 
 \authorpublications{
 
-\noindent The following publications and manuscripts arose from the research conducted during this doctoral candidature. The candidate is the first author of each item listed under Conference Proceedings and Manuscripts in Preparation, and a co-author of the items listed under Other Publications.
+\noindent The following publications and manuscripts arose from the research conducted during this doctoral candidature. The candidate is the first author of each item listed under Conference Proceedings and Manuscript Under Review, and a co-author of the items listed under Other Publications.
 
 \section*{Conference Proceedings}
 
 \begin{itemize}
-  \item \textbf{Molei Qin}, Shuo Sun, Wentao Zhang, Haochong Xia, Xinrun Wang, and Bo An, ``EarnHFT: Efficient Hierarchical Reinforcement Learning for High Frequency Trading,'' in \emph{Proceedings of the AAAI Conference on Artificial Intelligence (AAAI)}, 2024. (Chapter~\ref{ch:earnhft})
-  \item \textbf{Molei Qin}, Xinyu Cai, Yewen Li, Haochong Xia, Chuqiao Zong, Shuo Sun, Xinrun Wang, and Bo An, ``FineFT: Efficient and Risk-Aware Ensemble Reinforcement Learning for Futures Trading,'' in \emph{Proceedings of the 32nd ACM SIGKDD Conference on Knowledge Discovery and Data Mining (KDD)}, 2026, to appear. (Chapter~\ref{ch:fineft})
+  \item \textbf{Molei Qin}\textsuperscript{*}, Shuo Sun\textsuperscript{*}, Wentao Zhang, Haochong Xia, Xinrun Wang\textsuperscript{\textdagger}, and Bo An\textsuperscript{\textdagger}, ``EarnHFT: Efficient Hierarchical Reinforcement Learning for High Frequency Trading,'' in \emph{Proceedings of the AAAI Conference on Artificial Intelligence (AAAI)}, 2024. \emph{(\textsuperscript{*}Equal contribution; \textsuperscript{\textdagger}corresponding authors.)} (Chapter~\ref{ch:earnhft})
+  \item \textbf{Molei Qin}, Xinyu Cai, Yewen Li, Haochong Xia, Chuqiao Zong, Shuo Sun, Xinrun Wang\textsuperscript{*}, and Bo An, ``FineFT: Efficient and Risk-Aware Ensemble Reinforcement Learning for Futures Trading,'' in \emph{Proceedings of the 32nd ACM SIGKDD Conference on Knowledge Discovery and Data Mining, Volume~1 (KDD)}, pp.~1194--1203, 2026, doi:10.1145/3770854.3780187. \emph{(\textsuperscript{*}Corresponding author.)} (Chapter~\ref{ch:fineft})
 \end{itemize}
 
-\section*{Manuscripts in Preparation}
+\section*{Manuscript Under Review}
 
 \begin{itemize}
-  \item \textbf{Molei Qin}, Meiying Zhu, Chuqiao Zong, and Bo An, ``AlphaQD: Quality-Diversity Reinforcement Learning for Formulaic Alpha Mining,'' manuscript in preparation for submission to the \emph{ACM SIGKDD Conference on Knowledge Discovery and Data Mining (KDD'27, Cycle~1)}. (Chapter~\ref{ch:alphaqd})
+  \item \textbf{Molei Qin}, Meiying Zhu, Chuqiao Zong, and Bo An, ``AlphaQD: Quality-Diversity Reinforcement Learning for Formulaic Alpha Mining,'' manuscript currently under review for the \emph{ACM SIGKDD Conference on Knowledge Discovery and Data Mining (KDD'27, Cycle~1)}. (Chapter~\ref{ch:alphaqd})
 \end{itemize}
 
 \section*{Other Publications}
