@@ -285,7 +285,7 @@
   {\large \deptname}\\%[1.2cm] % University name
   \vfill
   \setstretch{1.2}
-  \large A thesis submitted to the Nanyang Technological University \\ in partial fulfillment of the requirements for the degree of\\ \degreename\\[1cm] % University requirement text
+  \large A thesis submitted to the Nanyang Technological University \\ in partial fulfilment of the requirements for the degree of\\ \degreename\\[1cm] % University requirement text
   {\large\bf 2026}\\[2cm] % Date (year of submission; hard-coded so recompilation cannot silently change it)
   \end{center}
   \end{titlepage}
@@ -310,7 +310,7 @@
 			{\large \textbf{\deptname}}\\%[1.2cm] % University name
 			[1.2cm]
 			\setstretch{1.2}
-			\large A thesis submitted to the Nanyang Technological University \\ in partial fulfillment of the requirements for the degree of\\ \degreename\\[1cm] % University requirement text
+			\large A thesis submitted to the Nanyang Technological University \\ in partial fulfilment of the requirements for the degree of\\ \degreename\\[1cm] % University requirement text
 			{\large\bf 2026}\\[2cm] % Date (year of submission; hard-coded so recompilation cannot silently change it)
 		\end{center}
 	\end{titlepage}
@@ -324,6 +324,7 @@
 \newenvironment{abstract}
 {
   \btypeout{Abstract Page}
+  \markboth{ABSTRACT}{ABSTRACT}
   \thispagestyle{plain}
   \vspace*{1.5cm}
  % \null\vfil
@@ -558,4 +559,3 @@
   \btypeout{\bibname}
   \@mainmatterfalse}
 \endinput
-

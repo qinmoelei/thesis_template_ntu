@@ -107,11 +107,11 @@
 % 	DECLARATION PAGE
 % ----------------------------------------------------------------------------------------
 
-\thesisdeclareOriginality{I hereby certify that the work embodied in this thesis is the result of original research, is free of plagiarised materials, and has not been submitted for a higher degree to any other University or Institution.\par\bigskip\noindent\textbf{Disclosure on AI Use.} I used Claude Fable~5 through Claude Code and GPT-5.6-sol through Codex to polish the prose by editing the corresponding \LaTeX{} source files, review equation formatting, and cross-check the thesis against publicly available source code. I confirm that I have adhered to NTU's Policy on the Use of Generative AI in Research. I reviewed and edited all tool-assisted changes and accept full responsibility for the content of this thesis.}{May 2026}{Styles/Molei_Qin_signature.png}
+\thesisdeclareOriginality{I hereby certify that the work embodied in this thesis is the result of original research, is free of plagiarised materials, and has not been submitted for a higher degree to any other University or Institution.\par\bigskip\noindent\textbf{Disclosure on AI Use.} I used the generative AI tools Anthropic Claude Code and OpenAI Codex to assist with polishing prose in the corresponding \LaTeX{} source files, reviewing equation formatting, and cross-checking the thesis against publicly available source code. I confirm that I have adhered to NTU's Policy on the Use of Generative AI in Research. I reviewed and edited all tool-assisted changes and accept full responsibility for the content of this thesis.}{May 2026}{Styles/Molei_Qin_signature.png}
 
-\thesisdeclareSupervisor{I have reviewed the content and presentation style of this thesis and declare it is free of plagiarism and of sufficient grammatical clarity to be examined.  To the best of my knowledge, the research and writing are those of the candidate except as acknowledged in the Author Attribution Statement. I confirm that the investigations were conducted in accord with the ethics policies and integrity standards of Nanyang Technological University and that the research data are presented honestly and without prejudice.}{May 2026}{Styles/Bo_An_signature.jpg}
+\thesisdeclareSupervisor{I have reviewed the content and presentation style of this thesis and declare it is free of plagiarism and of sufficient grammatical clarity to be examined. To the best of my knowledge, the research and writing are those of the candidate except as acknowledged in the Authorship Attribution Statement. I confirm that the investigations were conducted in accordance with the ethics policies and integrity standards of Nanyang Technological University and that the research data are presented honestly and without prejudice.}{May 2026}{Styles/Bo_An_signature.jpg}
 
-\thesisdeclareAuthorship{This thesis contains material from three research papers of which I am the first author. Two of these papers have been accepted for publication at peer-reviewed international conferences; the third is currently under review.}
+\thesisdeclareAuthorship{\textbf{Option B applies.} This thesis contains material from three research papers of which I am the first author. Two of these papers have been accepted for publication at peer-reviewed international conferences; the third is currently under review.}
 {The technical chapters of this thesis are based on the following papers, with the author list and per-author contributions given in full for each.
 
 	Chapter~\ref{ch:earnhft} is published as Molei Qin, Shuo Sun, Wentao Zhang, Haochong Xia, Xinrun Wang, and Bo An, ``EarnHFT: Efficient Hierarchical Reinforcement Learning for High Frequency Trading,'' in \emph{Proceedings of the AAAI Conference on Artificial Intelligence (AAAI'24)}, vol.~38, no.~13, pp.~14669--14676, 2024. Molei Qin and Shuo Sun are designated as equal contributors, and Xinrun Wang and Bo An as corresponding authors.
@@ -183,34 +183,34 @@ Finally, but most importantly, I would like to thank my parents, my family and m
 \fancyhead[LE,RO]{\thepage}
 
 %----------------------------------------------------------------------------------------
-%	ABSTRACT PAGE
-%----------------------------------------------------------------------------------------
-
-\addtotoc{Abstract} % Add the "Abstract" page entry to the Contents
-
-\abstract{\addtocontents{toc}{\vspace{0.8em}}}% Add a gap in the Contents, for aesthetics
-
-% 1. The Problem 2. The Issues 3. The Approach 4. The Results 5. The Experiments 6. The Applications
-
-Financial markets attract vast pools of capital worldwide. Quantitative trading converts market data into sequential decisions under uncertainty, making reinforcement learning (RL) a natural framework for optimising long-horizon objectives. Its application is nevertheless difficult: market distributions change, financial rewards have low signal-to-noise ratios, decision horizons can be extremely long, and leveraged errors can have asymmetric consequences. This thesis studies these challenges through three tasks spanning both frequency and function: second-level position control for a single spot asset, five-minute trading of leveraged cryptocurrency futures, and daily formulaic alpha mining over a full cross-section of equities.
-
-First, we study second-level high-frequency trading, where an agent faces horizons on the order of one million steps and changing market trends challenge a monolithic policy. We propose EarnHFT, a hierarchical RL framework that combines a sample-path optimal Q-teacher, a pool of trend-specialised agents, and a minute-level router. Across four dense second-level historical replays, EarnHFT attains the highest total return.
-
-Second, we investigate leveraged futures trading, where leverage magnifies profit-and-loss variation and unfamiliar states increase downside risk. FineFT trains a diversified ensemble through selective updates, models each inferred market dynamic with a variational autoencoder, and uses reconstruction losses for risk-aware routing. Across the four reported markets, FineFT has the highest average total return and the lowest average maximum drawdown among the compared learned methods.
-
-Third, we study formulaic alpha mining, where pool-coupled rewards create a moving target for reinforcement learning. AlphaQD separates an archive-independent GFlowNet reward from a Return-Source MAP-Elites archive and selects representatives from distinct behaviour cells. On the reported Chinese A-share and U.S.\ panels, AlphaQD is competitive on signal quality; on A-shares it has the highest annualised return among the learned formula-mining methods.
-
-Together, the three studies develop a common design perspective: structure task heterogeneity, construct differentiated candidates, and aggregate them with a task-appropriate mechanism. EarnHFT structures market trends, FineFT specialises learners through selective updates, and AlphaQD organises formula elites by return-source behaviour. This perspective connects the three tasks while preserving their distinct financial objectives and mathematical formulations.
-
-
-
-%----------------------------------------------------------------------------------------
 %	LIST OF CONTENTS/FIGURES/TABLES PAGES
 %----------------------------------------------------------------------------------------
 
 \pagestyle{fancy} % The page style headers have been "empty" all this time, now use the "fancy" headers as defined before to bring them back
 
 \tableofcontents % Write out the Table of Contents
+
+%----------------------------------------------------------------------------------------
+%	ABSTRACT PAGE
+%----------------------------------------------------------------------------------------
+
+\addtotoc{Abstract} % Add the "Abstract" page entry to the Contents
+
+\begin{abstract}
+\addtocontents{toc}{\vspace{0.8em}}% Add a gap in the Contents, for aesthetics
+
+% 1. The Problem 2. The Issues 3. The Approach 4. The Results 5. The Experiments 6. The Applications
+
+Financial markets attract vast pools of capital worldwide. Quantitative trading converts market data into sequential decisions under uncertainty, making reinforcement learning (RL) a natural framework for optimising long-horizon objectives. Its application is nevertheless difficult: market distributions change, financial rewards have low signal-to-noise ratios, decision horizons can be extremely long, and leveraged errors can have asymmetric consequences. This thesis studies these challenges through three tasks spanning both frequency and function: second-level target-position control for a single spot asset in historical replay, five-minute trading of leveraged cryptocurrency futures, and daily formulaic alpha mining over a full cross-section of equities.
+
+First, we study second-level target-position control in historical order-book replay, referred to in this thesis as high-frequency trading. An agent faces horizons on the order of one million steps, and changing market trends challenge a monolithic policy. We propose EarnHFT, a hierarchical RL framework that combines a sample-path optimal Q-teacher, a pool of trend-specialised agents, and a minute-level router. Across four dense second-level historical replays, EarnHFT attains the highest total return. The replay assumes immediate access to displayed depth and does not model latency, queue priority, or endogenous market impact.
+
+Second, we investigate leveraged futures trading, where leverage magnifies profit-and-loss variation and poor decisions can trigger liquidation. FineFT trains a diversified ensemble through selective updates, models each inferred market dynamic with a variational autoencoder, and uses reconstruction losses as heuristic distributional-familiarity scores to route among specialists and invoke a conservative fallback in unfamiliar states. Across the four reported markets, FineFT has the highest average total return and the lowest average maximum drawdown among the compared learned methods; the familiarity score is not a calibrated probability of policy failure.
+
+Third, we study formulaic alpha mining, where pool-coupled rewards create a moving target for reinforcement learning. AlphaQD separates an archive-independent GFlowNet reward from a Return-Source MAP-Elites archive and selects representatives from distinct behaviour cells. On the reported Chinese A-share and U.S.\ panels, AlphaQD is competitive on signal quality; on A-shares it has the highest annualised return among the learned formula-mining methods. Its analytical results motivate the archive and export design under explicitly conditional or idealised premises; they are not a finite-sample guarantee for the deployed ridge-weighted portfolio.
+
+Together, the three studies develop a common design perspective: structure task heterogeneity, construct differentiated candidates, and aggregate them with a task-appropriate mechanism. EarnHFT structures market trends, FineFT specialises learners through selective updates, and AlphaQD organises formula elites by their return sources. This perspective connects the three tasks while preserving their distinct financial objectives and mathematical formulations.
+\end{abstract}
 
 \listoffigures % Write out the List of Figures
 

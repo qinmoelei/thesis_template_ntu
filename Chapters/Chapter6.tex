@@ -122,7 +122,7 @@ For each occupied cell, the representative is the elite with the highest trainin
 \[
 \widehat{\mathbf w}=(X^\top X+I)^{-1}X^\top\mathbf y,
 \]
-fitted to tradable validation-split asset--date rows with finite targets. There is no intercept or feature standardisation; missing factor values are replaced by zero. The regularisation coefficient is fixed at $\lambda=1.0$, and the resulting weights are held fixed on the test set. Positive-ICIR-proportional weights are written with the native AlphaQD artifact, but they are not the weights used by the unified-ridge headline table. Because the per-cell representative inherits the positive-ICIR admission rule and the cells partition formulas by behaviour, the export is designed to encourage positive standalone training-window edge and lower redundancy; whether the exported pool meets the formal premises of \sref{sec:alphaqd_theory} out of sample is not guaranteed (see the discussion after Theorem~\ref{thm:alphaqd_ensemble}).
+fitted to tradable validation-split asset--date rows with finite targets. There is no intercept or feature standardisation; missing factor values are replaced by zero. The regularisation coefficient is fixed at $\lambda=1.0$, and the resulting weights are held fixed on the test set. Positive-ICIR-proportional weights are written with the native AlphaQD artefact, but they are not the weights used by the unified-ridge headline table. Because the per-cell representative inherits the positive-ICIR admission rule and the cells partition formulas by behaviour, the export is designed to encourage positive standalone training-window edge and lower redundancy; whether the exported pool meets the formal premises of \sref{sec:alphaqd_theory} out of sample is not guaranteed (see the discussion after Theorem~\ref{thm:alphaqd_ensemble}).
 
 \begin{algorithm}[!htb]
 \caption{AlphaQD: three-stage training and export}
@@ -154,10 +154,10 @@ fitted to tradable validation-split asset--date rows with finite targets. There 
 \end{algorithm}
 
 %----------------------------------------------------------------------------------------
-\section{Conditional Analytical Properties}
+\section{Conditional and Idealised Results}
 \label{sec:alphaqd_theory}
 
-This section gives conditional analytical results, with proofs inline. The deployed descriptor map is data-dependent and changes at the periodic PCA updates described in \sref{sec:alphaqd_archive}; none of the results below treats that moving partition as fixed unless the premise says so explicitly. One piece of notation is needed by Theorem~\ref{thm:alphaqd_stationary}: for a cell index $c=(b_1,\dots,b_{d_b})$ with $b_j\in\{0,\dots,B-1\}$, the \emph{anti-cell} is $\mathrm{anti}(c)=(B-1-b_1,\dots,B-1-b_{d_b})$, the \emph{orbit} of $c$ is the unordered pair $\mathcal{O}(c)=\{c,\mathrm{anti}(c)\}$, and, by a mild abuse of notation, $\mathcal{O}$ also denotes the set of all orbits. A formula and its sign-flip have oppositely signed IC shapes, but empirical quantile edges---especially after EMA updates---need not be symmetric, so antipodal cell membership is an idealised condition rather than a deployed invariant. Throughout, the discussion after each theorem distinguishes such fixed-map statements from the implementation.
+The proofs in this section serve as analytical motivations under conditional or idealised premises. They do not give an end-to-end guarantee for the deployed AlphaQD pipeline. The deployed descriptor map is data-dependent and changes at the periodic PCA updates described in \sref{sec:alphaqd_archive}; none of the results below treats that moving partition as fixed unless the premise says so explicitly. One piece of notation is needed by Theorem~\ref{thm:alphaqd_stationary}: for a cell index $c=(b_1,\dots,b_{d_b})$ with $b_j\in\{0,\dots,B-1\}$, the \emph{anti-cell} is $\mathrm{anti}(c)=(B-1-b_1,\dots,B-1-b_{d_b})$, the \emph{orbit} of $c$ is the unordered pair $\mathcal{O}(c)=\{c,\mathrm{anti}(c)\}$, and, by a mild abuse of notation, $\mathcal{O}$ also denotes the set of all orbits. A formula and its sign-flip have oppositely signed IC shapes, but empirical quantile edges---especially after EMA updates---need not be symmetric, so antipodal cell membership is an idealised condition rather than a deployed invariant. Throughout, the discussion after each theorem distinguishes such fixed-map statements from the implementation.
 
 \subsection{Decoupling Quality from Shape}
 \label{sec:alphaqd_decouple}
@@ -254,7 +254,7 @@ Under the canonical $\kappa=3$, $\delta=0.05$ the bound is $\approx 2.86\,\sigma
 \subsection{Ensemble ICIR Lower Bound}
 \label{sec:alphaqd_ensemble}
 
-The final result is an abstract lemma about equal-weight ensembles; its relation to the deployed pool is discussed below.
+The final result is an abstract bound for equal-weight ensembles; its relation to the deployed pool is discussed below.
 
 \begin{theorem}[Ensemble ICIR lower bound]
 \label{thm:alphaqd_ensemble}

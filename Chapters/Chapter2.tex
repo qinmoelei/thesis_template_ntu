@@ -104,7 +104,7 @@ Two families address the high stochasticity of financial rewards. \emph{Distribu
 \subsection{Hierarchical Reinforcement Learning}
 \label{sec:bg_hrl}
 
-Hierarchical RL decomposes a long-horizon task into a hierarchy of sub-tasks, typically a high-level policy that selects among low-level policies or temporally extended options~\cite{sutton1999between,pateria2021hierarchical}. In trading, this can map onto a separation of time scales: a slow policy selects a strategy while fast policies control positions. Prior hierarchical trading frameworks address portfolio management and order execution~\cite{wang2021commission} or select among strategies by market situation~\cite{niu2022metatrader}. EarnHFT brings this idea to single-asset high-frequency trading, where the high-level router operates at the minute scale and the low-level specialists at the second scale.
+Hierarchical RL decomposes a long-horizon task into a hierarchy of sub-tasks, typically a high-level policy that selects among low-level policies or temporally extended options~\cite{sutton1999between,pateria2021hierarchical}. In trading, this can map onto a separation of time scales: a slow policy selects a strategy while fast policies control positions. Prior hierarchical trading frameworks address portfolio management and order execution~\cite{wang2021commission} or select among strategies by market situation~\cite{niu2022metatrader}. EarnHFT brings this idea to second-level target-position control of a single asset in historical replay, where the high-level router operates at the minute scale and the low-level specialists at the second scale.
 
 \subsection{Generative Flow Networks}
 \label{sec:bg_gflownet}
