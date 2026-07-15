@@ -21,17 +21,17 @@ Reinforcement learning has produced promising results on lower-frequency tasks s
 This chapter presents EarnHFT, an \textbf{E}fficient hier\textbf{A}rchical \textbf{R}einforcement lear\textbf{N}ing method for \textbf{H}igh \textbf{F}requency \textbf{T}rading, whose three stages are summarised in \fref{fig:earnhft_pipeline}.\footnote{This chapter has been published in the \emph{Proceedings of the AAAI Conference on Artificial Intelligence (AAAI'24)}~\cite{qin2024earnhft}.} The design follows the decompose--specialise--aggregate pattern of \sref{sec:intro_pattern}.
 
 \begin{enumerate}
-\item \textbf{Stage~I (Q-teacher).} Under the historical-replay assumption that the agent's simulated orders do not alter the recorded future prices, we compute by dynamic programming the best continuation values on each realised training path. Used as a regulariser and a source of hindsight-greedy demonstrations, this ``Q-teacher'' supplies additional low-level learning signals.
+\item \textbf{Stage~I (optimal Q-teacher).} Under the historical-replay assumption that the agent's simulated orders do not alter the recorded future prices, we compute by dynamic programming the best continuation values on each realised training path. Used as a regulariser and a source of optimal-actor demonstrations, this sample-path optimal Q-teacher supplies additional low-level learning signals.
 \item \textbf{Stage~II (specialist pool).} Four preference-conditioned training runs produce 200 candidate checkpoints. We label the validation market with a fixed segmentation configuration and select a small pool of specialists by their observed validation performance.
 \item \textbf{Stage~III (router).} We train a minute-level router that dynamically selects a second-level specialist from the pool as the observed features change.
 \end{enumerate}
 
-Across the four reported cryptocurrency test paths, spanning bull, bear, and sideways periods, EarnHFT has the largest tabled total return among the six baselines on every path and the largest risk-adjusted metrics on three. These are single-seed, nine-day point estimates rather than population-level performance claims.
+Across four dense second-level cryptocurrency test paths spanning bull, bear, and sideways periods, EarnHFT has the largest tabled total return among the six baselines on every path and the largest risk-adjusted metrics on three.
 
 \begin{figure}[!htb]
 \centering
 \includegraphics[width=\textwidth]{Chapter4/earnhft_pipeline}
-\caption[The EarnHFT framework.]{Overview of the three stages of EarnHFT. Stage~I computes a sample-path Q-teacher that supplies auxiliary training signals to second-level learners. Stage~II produces preference-conditioned checkpoints and selects a small validation-ranked pool. Stage~III trains a minute-level router that selects one retained second-level specialist.}
+\caption[The EarnHFT framework.]{Overview of the three stages of EarnHFT. Stage~I computes a sample-path optimal Q-teacher that supplies auxiliary training signals and optimal-actor demonstrations to second-level learners. Stage~II produces preference-conditioned checkpoints and selects a small validation-ranked pool. Stage~III trains a minute-level router that selects one retained second-level specialist.}
 \label{fig:earnhft_pipeline}
 \end{figure}
 
@@ -99,7 +99,8 @@ The released implementation takes the maximum directly over the target network; 
 Two properties explain what this auxiliary term matches. First, the softmax is unchanged by adding the same constant to every action value: for any $c\in\mathbb{R}$,
 \begin{equation}
 \label{eq:earnhft_softmax_shift}
-\mathrm{softmax}\bigl(Q(x,\cdot)\bigr)=\mathrm{softmax}\bigl(Q(x,\cdot)-c\bigr)
+\mathrm{softmax}\bigl(Q(x,\cdot)\bigr)
+=\mathrm{softmax}\bigl(Q(x,\cdot)-c\mathbf{1}\bigr)
 \qquad\text{for every }c\in\mathbb{R}.
 \end{equation}
 Choosing $c=\tfrac{1}{|A|}\sum_{a\in A}Q(x,a)$ shows that each distribution depends on its action-value vector only through that vector \emph{centred across the actions}---the advantage of each action over the state's average action value---and not on a common offset. The analytical surrogate below uses an analogous centred residual $Re$; it is not the trajectory table $Q^\star$ and should not be identified with it. The KL term therefore matches relative action preferences, including their separation, rather than the common value level.
@@ -143,7 +144,7 @@ In Algorithm~\ref{alg:earnhft_qtable}, $p$ and $a$ are indices into the position
 \State Initialise replay buffers $R_h,R_\epsilon$, network $Q_\theta$, and target network $Q_{\theta'}$; build $Q^\star$ via Algorithm~\ref{alg:earnhft_qtable}.
 \For{epoch $= 1$ \textbf{to} $n_{\mathrm{ep}}$}
   \State Reset the trading environment.
-  \For{$t = 0$ \textbf{to} $N-2$} \Comment{hindsight-greedy rollout}
+  \For{$t = 0$ \textbf{to} $N-2$} \Comment{optimal-actor rollout}
     \State Choose $a_h=\argmax_a Q^\star[t,p,a]$; execute it to obtain $(r,s')$ and store $(s,a_h,r,s',Q^\star[t,p,\cdot])$ in $R_h$.
   \EndFor
   \State Reset the trading environment.
@@ -296,7 +297,7 @@ GALA/USDT & Bull    & 3{,}970{,}740 & 22/07/01 & 22/08/15 \\
 \subsection{Comparison with Baselines}
 \label{sec:earnhft_comparison}
 
-\tref{tab:earnhft_main} reports the four held-out paths. EarnHFT has the largest tabled TR on each and the largest ASR, ACR, and ASoR on three, while several baselines have lower volatility or drawdown. In these runs, the value-based baselines are positive only on some comparatively stable paths, and the policy-based baselines record large losses on ETH. DRA and PPO have identical GALA rows. According to the author, under transaction costs both policy-gradient baselines can converge quickly to an almost unchanging position policy; on this path they converged to the same low-switching behaviour, producing coincident summary metrics. The EarnHFT rows favour return over uniformly low risk, which is consistent with the profit-oriented hindsight signal but does not by itself establish a causal mechanism. Every comparison is a point estimate from one fixed training seed and one nine-day evaluation path per market; there are no seed confidence intervals or significance tests. The ranking is therefore descriptive for these four paths. \fref{fig:earnhft_trading} illustrates one ETH episode in which the simulated target position opens and closes within roughly thirty seconds.
+\tref{tab:earnhft_main} reports the four held-out paths, each containing hundreds of thousands of second-level decisions. EarnHFT has the largest tabled TR on each and the largest ASR, ACR, and ASoR on three, while several baselines have lower volatility or drawdown. In these runs, the value-based baselines are positive only on some comparatively stable paths, and the policy-based baselines record large losses on ETH. DRA and PPO have identical GALA rows. Under transaction costs, both policy-gradient baselines can converge to an almost unchanging position policy; on this path they produced the same low-switching behaviour and coincident summary metrics. \fref{fig:earnhft_trading} illustrates one ETH episode in which the simulated target position opens and closes within roughly thirty seconds.
 
 \begin{table}[!htb]
 \centering
@@ -349,8 +350,14 @@ Market & Model & TR$\uparrow$ & ASR$\uparrow$ & ACR$\uparrow$ & ASoR$\uparrow$ &
 
 \begin{figure}[!htb]
 \centering
-\includegraphics[width=0.6\textwidth]{Chapter4/earnhft_trading_example}
-\caption[An EarnHFT trading episode.]{An illustrative ETH replay. The simulated target position opens and closes within roughly thirty seconds; the corresponding price movement appears only as a pullback at minute scale. The embedded horizontal-axis label ``Time (days)'' is erroneous: its tick labels are wall-clock times and the episode is shown at second scale.}
+\begin{tikzpicture}
+  \node[inner sep=0] (tradingplot)
+    {\includegraphics[width=0.6\textwidth]{Chapter4/earnhft_trading_example}};
+  \fill[white] ([xshift=-55pt]tradingplot.south)
+    rectangle ([xshift=55pt,yshift=14pt]tradingplot.south);
+  \node[font=\scriptsize,anchor=south] at ([yshift=1pt]tradingplot.south) {Time};
+\end{tikzpicture}
+\caption[An EarnHFT trading episode.]{An illustrative second-scale ETH replay. The simulated target position opens and closes within roughly thirty seconds; the corresponding price movement appears only as a pullback at minute scale.}
 \label{fig:earnhft_trading}
 \end{figure}
 
@@ -373,15 +380,15 @@ Market & Model & TR$\uparrow$ & ASR$\uparrow$ & ACR$\uparrow$ & ASoR$\uparrow$ &
 \label{fig:earnhft_selection}
 \end{figure}
 
-\subsection{Ablation of the Hindsight Teacher}
+\subsection{Ablation of the Optimal Q-Teacher}
 \label{sec:earnhft_ablation}
 
-\tref{tab:earnhft_ablation} retains the published labels OS (``optimal supervisor'') and OA (``optimal actor''), but both refer to the sample-path hindsight table defined above: OS is the teacher-to-student KL term and OA the hindsight-greedy demonstration rollout. CS is the study's reported convergence-step proxy, RS the reward sum at that point, and AHL the average holding length. On GALA, adding OS to the unassisted target-network learner lowers CS from $30{,}720$ to $4{,}608$ and raises RS from $-0.01$ to $2.89$; adding both components gives the largest GALA RS but a larger CS. On ETH, OS leaves CS tied with the unassisted row at $30{,}720$ and changes RS from $-29.6$ to $4.87$, while the two-component row has the largest RS. These two-market ablations support an empirical contribution from the teacher components; they do not establish convergence or stochastic-market optimality.
+\tref{tab:earnhft_ablation} uses the published labels OS (``optimal supervisor'') and OA (``optimal actor''). OS is the optimal-Q-teacher KL term and OA the corresponding optimal-actor demonstration rollout. CS is the study's reported convergence-step proxy, RS the reward sum at that point, and AHL the average holding length. On GALA, adding OS to the unassisted target-network learner lowers CS from $30{,}720$ to $4{,}608$ and raises RS from $-0.01$ to $2.89$; adding both components gives the largest GALA RS but a larger CS. On ETH, OS leaves CS tied with the unassisted row at $30{,}720$ and changes RS from $-29.6$ to $4.87$, while the two-component row has the largest RS. These two-market ablations support an empirical contribution from the teacher components.
 
 \begin{table}[!htb]
 \setlength\tabcolsep{5pt}
 \centering
-\caption[Ablation of the Q-teacher.]{Ablation of the hindsight-value supervisor (OS in the published table) and hindsight-greedy demonstrator (OA) on ETH and GALA. CS is the reported convergence-step proxy, RS the associated reward sum, and AHL the average holding length. All tied best CS and RS values are in bold (colour retained for screen reading); AHL is descriptive and has no preferred direction.}
+\caption[Ablation of the Q-teacher.]{Ablation of the optimal Q-teacher (OS in the published table) and optimal actor (OA) on ETH and GALA. CS is the reported convergence-step proxy, RS the associated reward sum, and AHL the average holding length. All tied best CS and RS values are in bold (colour retained for screen reading); AHL is descriptive and has no preferred direction.}
 \label{tab:earnhft_ablation}
 \begin{tabular}{cccccccc}
 \toprule
@@ -408,4 +415,4 @@ The reported trajectories show different position patterns across markets. BTCT 
 \section{Chapter Summary}
 \label{sec:earnhft_summary}
 
-This chapter presented EarnHFT as a three-stage hierarchical RL method for second-level target-position control in historical order-book replay. A sample-path dynamic-programming table supplies teacher-to-student softmax-KL supervision and hindsight-greedy demonstrations; preference-conditioned checkpoints provide a specialist pool; and a minute-level target-network router switches among the retained specialists. The discounted tabular surrogate in Theorem~\ref{thm:earnhft_convergence} motivates centred-value supervision, but the reported function-approximation experiments use a different KL objective and $\gamma_l=\gamma_h=1$, so the theorem is not a convergence guarantee for them. On the four single-seed, nine-day test paths, EarnHFT has the largest tabled TR on all four and the largest risk-adjusted metrics on three; the ablations on ETH and GALA associate both teacher components with higher reported reward sums. In the language of the thesis, EarnHFT is the first instantiation of the decompose--specialise--aggregate pattern, with a value-based router selecting one specialist at a time. The next chapter retains the pattern but considers leveraged futures, where aggregation must additionally manage risk and distributional familiarity.
+This chapter presented EarnHFT as a three-stage hierarchical RL method for second-level target-position control in historical order-book replay. A sample-path optimal Q-table supplies teacher-to-student softmax-KL supervision and optimal-actor demonstrations; preference-conditioned checkpoints provide a specialist pool; and a minute-level target-network router switches among the retained specialists. The discounted tabular surrogate in Theorem~\ref{thm:earnhft_convergence} motivates centred-value supervision, but the reported function-approximation experiments use a different KL objective and $\gamma_l=\gamma_h=1$, so the theorem is not a convergence guarantee for them. On the four dense second-level test paths, EarnHFT has the largest tabled TR on all four and the largest risk-adjusted metrics on three; the ablations on ETH and GALA associate both teacher components with higher reported reward sums. In the language of the thesis, EarnHFT is the first instantiation of the decompose--specialise--aggregate pattern, with a value-based router selecting one specialist at a time. The next chapter retains the pattern but considers leveraged futures, where aggregation must additionally manage risk and distributional familiarity.
