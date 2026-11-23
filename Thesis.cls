@@ -462,7 +462,7 @@
 	\begin{spacing}{2}
 		\begin{center}\Large \underline{\bf Statement of Originality}\end{center}
 		{\normalfont\large #1\par}
-		\vspace{2.5cm}
+		\vspace{1.2cm}
 		\begin{center}
 			\makebox[4cm]{#2}  \hfill
       \tikz[remember picture,overlay] 
